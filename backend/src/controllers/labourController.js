@@ -21,10 +21,16 @@ const createLabour = async (req, res) => {
       });
     }
 
+    const contractorId =
+      req.user.role === "CONTRACTOR"
+        ? req.user._id
+        : req.user.parentUserId;
+
+    // Skill Validation
     const skill = await Skill.findOne({
       _id: skillId,
       companyId: req.user.companyId,
-      contractorId: req.user._id,
+      contractorId,
       isDeleted: false,
       status: "ACTIVE",
     });
@@ -36,16 +42,53 @@ const createLabour = async (req, res) => {
       });
     }
 
+    // Duplicate Mobile Check
+    const existingLabour = await Labour.findOne({
+      companyId: req.user.companyId,
+      contractorId,
+      mobile,
+      isDeleted: false,
+    });
+
+    if (existingLabour) {
+      return res.status(400).json({
+        success: false,
+        message: "Mobile number already exists.",
+      });
+    }
+
+    // Generate Labour Code
+    const lastLabour = await Labour.findOne({
+      companyId: req.user.companyId,
+      contractorId,
+    }).sort({ createdAt: -1 });
+
+    let nextNumber = 100001;
+
+    if (lastLabour && lastLabour.labourCode) {
+      const lastNumber = parseInt(
+        lastLabour.labourCode.split("-")[1]
+      );
+
+      if (!isNaN(lastNumber)) {
+        nextNumber = lastNumber + 1;
+      }
+    }
+
+    const labourCode = `LBR-${nextNumber}`;
+
+    // Create Labour
     const labour = await Labour.create({
       companyId: req.user.companyId,
-      contractorId: req.user._id,
-      supervisorId,
+      contractorId,
+      labourCode,
+      supervisorId: supervisorId || null,
       skillId,
       name,
       mobile,
       gender,
-      dob,
-      address,
+      dob: dob || null,
+      address: address || "",
       dailyWage: dailyWage ?? null,
     });
 
@@ -55,7 +98,10 @@ const createLabour = async (req, res) => {
       data: labour,
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
   }
 };
 

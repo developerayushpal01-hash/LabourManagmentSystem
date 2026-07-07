@@ -26,6 +26,13 @@ const labourSchema = new mongoose.Schema(
       required: true,
     },
 
+    labourCode: {
+      type: String,
+      required: true,
+      unique: true,
+      trim: true,
+    },
+
     name: {
       type: String,
       required: true,
