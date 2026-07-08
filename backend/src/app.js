@@ -13,6 +13,7 @@ const labourPaymentRoutes = require("./routes/labourPayment.routes");
 const dashboardRoutes=require("./routes/dashboard.routes");
 const reportRoutes = require("./routes/report.routes");
 const exportRoutes = require("./routes/export.routes");
+const payrollSettingRoutes = require("./routes/payrollSetting.routes");
 
 
 
@@ -49,5 +50,7 @@ app.use("/api/dashboard",dashboardRoutes);
 app.use("/api/reports", reportRoutes);
 
 app.use("/api/export", exportRoutes);
+
+app.use("/api/payroll-settings", payrollSettingRoutes);
 
 module.exports = app;

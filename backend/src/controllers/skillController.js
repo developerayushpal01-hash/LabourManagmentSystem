@@ -1,8 +1,12 @@
 const Skill = require("../models/Skill");
 
+const getContractorId = (user) => {
+  return user.role === "CONTRACTOR" ? user._id : user.parentUserId;
+};
+
 const createSkill = async (req, res) => {
   try {
-    const { skillName, skillCode, defaultDailyWage } = req.body;
+    const { skillName, skillCode, defaultDailyWage, otRatePerHour } = req.body;
 
     if (!skillName || !defaultDailyWage) {
       return res.status(400).json({
@@ -11,12 +15,15 @@ const createSkill = async (req, res) => {
       });
     }
 
+    const contractorId = getContractorId(req.user);
+
     const skill = await Skill.create({
       companyId: req.user.companyId,
-      contractorId: req.user._id,
+      contractorId,
       skillName,
       skillCode,
       defaultDailyWage,
+      otRatePerHour: otRatePerHour || 0,
     });
 
     res.status(201).json({
@@ -31,9 +38,11 @@ const createSkill = async (req, res) => {
 
 const getSkills = async (req, res) => {
   try {
+    const contractorId = getContractorId(req.user);
+
     const skills = await Skill.find({
       companyId: req.user.companyId,
-      contractorId: req.user._id,
+      contractorId,
       isDeleted: false,
     }).sort({ createdAt: -1 });
 
@@ -49,14 +58,32 @@ const getSkills = async (req, res) => {
 
 const updateSkill = async (req, res) => {
   try {
+    const contractorId = getContractorId(req.user);
+
+    const allowedFields = [
+      "skillName",
+      "skillCode",
+      "defaultDailyWage",
+      "otRatePerHour",
+      "status",
+    ];
+
+    const updateData = {};
+
+    allowedFields.forEach((field) => {
+      if (req.body[field] !== undefined) {
+        updateData[field] = req.body[field];
+      }
+    });
+
     const skill = await Skill.findOneAndUpdate(
       {
         _id: req.params.id,
         companyId: req.user.companyId,
-        contractorId: req.user._id,
+        contractorId,
         isDeleted: false,
       },
-      req.body,
+      updateData,
       { new: true, runValidators: true }
     );
 
@@ -79,11 +106,13 @@ const updateSkill = async (req, res) => {
 
 const deleteSkill = async (req, res) => {
   try {
+    const contractorId = getContractorId(req.user);
+
     const skill = await Skill.findOneAndUpdate(
       {
         _id: req.params.id,
         companyId: req.user.companyId,
-        contractorId: req.user._id,
+        contractorId,
         isDeleted: false,
       },
       { isDeleted: true },
