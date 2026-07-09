@@ -30,4 +30,5 @@ router.put(
   authorizeRoles("CONTRACTOR"),
   updatePayrollSetting
 );
+
 module.exports = router;

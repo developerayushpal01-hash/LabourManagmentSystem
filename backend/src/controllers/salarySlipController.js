@@ -8,11 +8,17 @@ const getContractorId = (user) => {
   return user.role === "CONTRACTOR" ? user._id : user.parentUserId;
 };
 
-const roundValue = (value, roundOff = true) => {
-  return roundOff ? Math.round(value) : Number(value.toFixed(2));
+const roundValue = (value, roundOffSalary = true) => {
+  return roundOffSalary ? Math.round(value) : Number(value.toFixed(2));
 };
 
-const getAttendanceSummary = async ({ companyId, contractorId, labourId, month, year }) => {
+const getMonthlyAttendanceSummary = async ({
+  companyId,
+  contractorId,
+  labourId,
+  month,
+  year,
+}) => {
   const startDate = new Date(year, month - 1, 1);
   const endDate = new Date(year, month, 0, 23, 59, 59, 999);
 
@@ -22,7 +28,7 @@ const getAttendanceSummary = async ({ companyId, contractorId, labourId, month, 
     labourId,
     attendanceDate: { $gte: startDate, $lte: endDate },
     isDeleted: false,
-  });
+  }).sort({ attendanceDate: 1 });
 
   let presentDays = 0;
   let halfDays = 0;
@@ -62,7 +68,13 @@ const getAttendanceSummary = async ({ companyId, contractorId, labourId, month, 
   };
 };
 
-const getPaymentSummary = async ({ companyId, contractorId, labourId, month, year }) => {
+const getPaymentSummary = async ({
+  companyId,
+  contractorId,
+  labourId,
+  month,
+  year,
+}) => {
   const payments = await LabourPayment.find({
     companyId,
     contractorId,
@@ -70,7 +82,7 @@ const getPaymentSummary = async ({ companyId, contractorId, labourId, month, yea
     month: Number(month),
     year: Number(year),
     isDeleted: false,
-  });
+  }).sort({ paymentDate: 1 });
 
   let paidAmount = 0;
   let advance = 0;
@@ -96,91 +108,75 @@ const getPaymentSummary = async ({ companyId, contractorId, labourId, month, yea
   };
 };
 
-const calculatePayroll = ({ attendanceSummary, paymentSummary, setting }) => {
-  const payrollSetting = setting || {};
-  const roundOff = payrollSetting.roundOffSalary !== false;
+const calculatePayrollBreakup = ({
+  basicSalary,
+  overtimeAmount,
+  bonus,
+  incentive,
+  advance,
+  otherDeduction,
+  payrollSetting,
+}) => {
+  const setting = payrollSetting || {};
 
-  const basicSalary = attendanceSummary.basicSalary;
-  const overtimeAmount = attendanceSummary.overtimeAmount;
+  const roundOffSalary = setting.roundOffSalary !== false;
 
   const hra =
-    payrollSetting.hraType === "FIXED"
-      ? payrollSetting.hraValue || 0
-      : (basicSalary * (payrollSetting.hraValue ?? 20)) / 100;
+    setting.hraType === "FIXED"
+      ? setting.hraValue || 0
+      : (basicSalary * (setting.hraValue ?? 20)) / 100;
 
   const otherAllowance =
-    payrollSetting.otherAllowanceType === "PERCENT"
-      ? (basicSalary * (payrollSetting.otherAllowanceValue || 0)) / 100
-      : payrollSetting.otherAllowanceValue || 0;
+    setting.otherAllowanceType === "PERCENT"
+      ? (basicSalary * (setting.otherAllowanceValue || 0)) / 100
+      : setting.otherAllowanceValue || 0;
 
   const grossSalary =
-    basicSalary +
-    hra +
-    otherAllowance +
-    paymentSummary.bonus +
-    paymentSummary.incentive +
-    overtimeAmount;
+    basicSalary + hra + otherAllowance + bonus + incentive + overtimeAmount;
 
   const pfEmployee =
-    payrollSetting.isPFEnabled === false
+    setting.isPFEnabled === false
       ? 0
-      : (basicSalary * (payrollSetting.pfEmployeePercent ?? 12)) / 100;
+      : (basicSalary * (setting.pfEmployeePercent ?? 12)) / 100;
 
   const esicEmployee =
-    payrollSetting.isESICEnabled === false
+    setting.isESICEnabled === false
       ? 0
-      : (grossSalary * (payrollSetting.esicEmployeePercent ?? 0.75)) / 100;
+      : (grossSalary * (setting.esicEmployeePercent ?? 0.75)) / 100;
 
   const netSalary =
-    grossSalary -
-    pfEmployee -
-    esicEmployee -
-    paymentSummary.advance -
-    paymentSummary.otherDeduction;
+    grossSalary - pfEmployee - esicEmployee - advance - otherDeduction;
 
   const pfEmployer =
-    payrollSetting.isPFEnabled === false
+    setting.isPFEnabled === false
       ? 0
-      : (basicSalary * (payrollSetting.pfEmployerPercent ?? 13)) / 100;
+      : (basicSalary * (setting.pfEmployerPercent ?? 13)) / 100;
 
   const esicEmployer =
-    payrollSetting.isESICEnabled === false
+    setting.isESICEnabled === false
       ? 0
-      : (grossSalary * (payrollSetting.esicEmployerPercent ?? 3.25)) / 100;
+      : (grossSalary * (setting.esicEmployerPercent ?? 3.25)) / 100;
 
   const ctc = grossSalary + pfEmployer + esicEmployer;
 
-  const balanceAmount = netSalary - paymentSummary.paidAmount;
-
-  const status =
-    paymentSummary.paidAmount <= 0
-      ? "PENDING"
-      : balanceAmount <= 0
-      ? "PAID"
-      : "PARTIAL";
-
   return {
-    basicSalary: roundValue(basicSalary, roundOff),
-    hra: roundValue(hra, roundOff),
-    otherAllowance: roundValue(otherAllowance, roundOff),
-    bonus: roundValue(paymentSummary.bonus, roundOff),
-    incentive: roundValue(paymentSummary.incentive, roundOff),
-    overtimeAmount: roundValue(overtimeAmount, roundOff),
-    grossSalary: roundValue(grossSalary, roundOff),
+    basicSalary: roundValue(basicSalary, roundOffSalary),
+    hra: roundValue(hra, roundOffSalary),
+    otherAllowance: roundValue(otherAllowance, roundOffSalary),
+    bonus: roundValue(bonus, roundOffSalary),
+    incentive: roundValue(incentive, roundOffSalary),
+    overtimeAmount: roundValue(overtimeAmount, roundOffSalary),
+    grossSalary: roundValue(grossSalary, roundOffSalary),
 
-    pfEmployee: roundValue(pfEmployee, roundOff),
-    esicEmployee: roundValue(esicEmployee, roundOff),
-    advance: roundValue(paymentSummary.advance, roundOff),
-    otherDeduction: roundValue(paymentSummary.otherDeduction, roundOff),
-    netSalary: roundValue(netSalary, roundOff),
+    pfEmployee: roundValue(pfEmployee, roundOffSalary),
+    esicEmployee: roundValue(esicEmployee, roundOffSalary),
+    advance: roundValue(advance, roundOffSalary),
+    otherDeduction: roundValue(otherDeduction, roundOffSalary),
+    netSalary: roundValue(netSalary, roundOffSalary),
 
-    pfEmployer: roundValue(pfEmployer, roundOff),
-    esicEmployer: roundValue(esicEmployer, roundOff),
-    ctc: roundValue(ctc, roundOff),
-
-    paidAmount: roundValue(paymentSummary.paidAmount, roundOff),
-    balanceAmount: roundValue(balanceAmount, roundOff),
-    status,
+    pfEmployer: roundValue(pfEmployer, roundOffSalary),
+    esicEmployer: roundValue(esicEmployer, roundOffSalary),
+    ctc: roundValue(ctc, roundOffSalary),
   };
 };
 
@@ -197,7 +193,7 @@ const calculateSalary = async (req, res) => {
 
     const contractorId = getContractorId(req.user);
 
-    const setting = await PayrollSetting.findOne({
+    const payrollSetting = await PayrollSetting.findOne({
       companyId: req.user.companyId,
       contractorId,
       isDeleted: false,
@@ -212,7 +208,7 @@ const calculateSalary = async (req, res) => {
     const result = [];
 
     for (const labour of labours) {
-      const attendanceSummary = await getAttendanceSummary({
+      const attendanceSummary = await getMonthlyAttendanceSummary({
         companyId: req.user.companyId,
         contractorId,
         labourId: labour._id,
@@ -228,11 +224,17 @@ const calculateSalary = async (req, res) => {
         year: Number(year),
       });
 
-      const payroll = calculatePayroll({
-        attendanceSummary,
-        paymentSummary,
-        setting,
+      const payroll = calculatePayrollBreakup({
+        basicSalary: attendanceSummary.basicSalary,
+        overtimeAmount: attendanceSummary.overtimeAmount,
+        bonus: paymentSummary.bonus,
+        incentive: paymentSummary.incentive,
+        advance: paymentSummary.advance,
+        otherDeduction: paymentSummary.otherDeduction,
+        payrollSetting,
       });
+
+      const balanceAmount = payroll.netSalary - paymentSummary.paidAmount;
 
       result.push({
         labourId: labour._id,
@@ -249,6 +251,15 @@ const calculateSalary = async (req, res) => {
         holidayDays: attendanceSummary.holidayDays,
 
         ...payroll,
+
+        paidAmount: paymentSummary.paidAmount,
+        balanceAmount,
+        status:
+          paymentSummary.paidAmount <= 0
+            ? "PENDING"
+            : balanceAmount <= 0
+            ? "PAID"
+            : "PARTIAL",
       });
     }
 
@@ -290,13 +301,13 @@ const calculateLabourSalary = async (req, res) => {
       });
     }
 
-    const setting = await PayrollSetting.findOne({
+    const payrollSetting = await PayrollSetting.findOne({
       companyId: req.user.companyId,
       contractorId,
       isDeleted: false,
     });
 
-    const attendanceSummary = await getAttendanceSummary({
+    const attendanceSummary = await getMonthlyAttendanceSummary({
       companyId: req.user.companyId,
       contractorId,
       labourId,
@@ -312,11 +323,17 @@ const calculateLabourSalary = async (req, res) => {
       year: Number(year),
     });
 
-    const payroll = calculatePayroll({
-      attendanceSummary,
-      paymentSummary,
-      setting,
+    const payroll = calculatePayrollBreakup({
+      basicSalary: attendanceSummary.basicSalary,
+      overtimeAmount: attendanceSummary.overtimeAmount,
+      bonus: paymentSummary.bonus,
+      incentive: paymentSummary.incentive,
+      advance: paymentSummary.advance,
+      otherDeduction: paymentSummary.otherDeduction,
+      payrollSetting,
     });
+
+    const balanceAmount = payroll.netSalary - paymentSummary.paidAmount;
 
     res.status(200).json({
       success: true,
@@ -335,6 +352,15 @@ const calculateLabourSalary = async (req, res) => {
         holidayDays: attendanceSummary.holidayDays,
 
         ...payroll,
+
+        paidAmount: paymentSummary.paidAmount,
+        balanceAmount,
+        status:
+          paymentSummary.paidAmount <= 0
+            ? "PENDING"
+            : balanceAmount <= 0
+            ? "PAID"
+            : "PARTIAL",
 
         attendance: attendanceSummary.attendance,
         payments: paymentSummary.payments,
@@ -372,13 +398,13 @@ const generateSalarySlip = async (req, res) => {
       });
     }
 
-    const setting = await PayrollSetting.findOne({
+    const payrollSetting = await PayrollSetting.findOne({
       companyId: req.user.companyId,
       contractorId,
       isDeleted: false,
     });
 
-    const attendanceSummary = await getAttendanceSummary({
+    const attendanceSummary = await getMonthlyAttendanceSummary({
       companyId: req.user.companyId,
       contractorId,
       labourId,
@@ -394,11 +420,24 @@ const generateSalarySlip = async (req, res) => {
       year: Number(year),
     });
 
-    const payroll = calculatePayroll({
-      attendanceSummary,
-      paymentSummary,
-      setting,
+    const payroll = calculatePayrollBreakup({
+      basicSalary: attendanceSummary.basicSalary,
+      overtimeAmount: attendanceSummary.overtimeAmount,
+      bonus: paymentSummary.bonus,
+      incentive: paymentSummary.incentive,
+      advance: paymentSummary.advance,
+      otherDeduction: paymentSummary.otherDeduction,
+      payrollSetting,
     });
+
+    const balanceAmount = payroll.netSalary - paymentSummary.paidAmount;
+
+    const status =
+      paymentSummary.paidAmount <= 0
+        ? "PENDING"
+        : balanceAmount <= 0
+        ? "PAID"
+        : "PARTIAL";
 
     const slip = await SalarySlip.findOneAndUpdate(
       {
@@ -415,7 +454,28 @@ const generateSalarySlip = async (req, res) => {
         labourId,
         month: Number(month),
         year: Number(year),
-        ...payroll,
+
+        basicSalary: payroll.basicSalary,
+        hra: payroll.hra,
+        otherAllowance: payroll.otherAllowance,
+        bonus: payroll.bonus,
+        incentive: payroll.incentive,
+        overtimeAmount: payroll.overtimeAmount,
+        grossSalary: payroll.grossSalary,
+
+        pfEmployee: payroll.pfEmployee,
+        esicEmployee: payroll.esicEmployee,
+        advance: payroll.advance,
+        otherDeduction: payroll.otherDeduction,
+        netSalary: payroll.netSalary,
+
+        pfEmployer: payroll.pfEmployer,
+        esicEmployer: payroll.esicEmployer,
+        ctc: payroll.ctc,
+
+        paidAmount: paymentSummary.paidAmount,
+        balanceAmount,
+        status,
         generatedBy: req.user._id,
       },
       {
@@ -448,22 +508,22 @@ const generateAllSalarySlips = async (req, res) => {
 
     const contractorId = getContractorId(req.user);
 
-    const setting = await PayrollSetting.findOne({
-      companyId: req.user.companyId,
-      contractorId,
-      isDeleted: false,
-    });
-
     const labours = await Labour.find({
       companyId: req.user.companyId,
       contractorId,
       isDeleted: false,
     });
 
-    const slips = [];
+    const generatedSlips = [];
 
     for (const labour of labours) {
-      const attendanceSummary = await getAttendanceSummary({
+      const payrollSetting = await PayrollSetting.findOne({
+        companyId: req.user.companyId,
+        contractorId,
+        isDeleted: false,
+      });
+
+      const attendanceSummary = await getMonthlyAttendanceSummary({
         companyId: req.user.companyId,
         contractorId,
         labourId: labour._id,
@@ -479,11 +539,24 @@ const generateAllSalarySlips = async (req, res) => {
         year: Number(year),
       });
 
-      const payroll = calculatePayroll({
-        attendanceSummary,
-        paymentSummary,
-        setting,
+      const payroll = calculatePayrollBreakup({
+        basicSalary: attendanceSummary.basicSalary,
+        overtimeAmount: attendanceSummary.overtimeAmount,
+        bonus: paymentSummary.bonus,
+        incentive: paymentSummary.incentive,
+        advance: paymentSummary.advance,
+        otherDeduction: paymentSummary.otherDeduction,
+        payrollSetting,
       });
+
+      const balanceAmount = payroll.netSalary - paymentSummary.paidAmount;
+
+      const status =
+        paymentSummary.paidAmount <= 0
+          ? "PENDING"
+          : balanceAmount <= 0
+          ? "PAID"
+          : "PARTIAL";
 
       const slip = await SalarySlip.findOneAndUpdate(
         {
@@ -500,7 +573,28 @@ const generateAllSalarySlips = async (req, res) => {
           labourId: labour._id,
           month: Number(month),
           year: Number(year),
-          ...payroll,
+
+          basicSalary: payroll.basicSalary,
+          hra: payroll.hra,
+          otherAllowance: payroll.otherAllowance,
+          bonus: payroll.bonus,
+          incentive: payroll.incentive,
+          overtimeAmount: payroll.overtimeAmount,
+          grossSalary: payroll.grossSalary,
+
+          pfEmployee: payroll.pfEmployee,
+          esicEmployee: payroll.esicEmployee,
+          advance: payroll.advance,
+          otherDeduction: payroll.otherDeduction,
+          netSalary: payroll.netSalary,
+
+          pfEmployer: payroll.pfEmployer,
+          esicEmployer: payroll.esicEmployer,
+          ctc: payroll.ctc,
+
+          paidAmount: paymentSummary.paidAmount,
+          balanceAmount,
+          status,
           generatedBy: req.user._id,
         },
         {
@@ -510,14 +604,14 @@ const generateAllSalarySlips = async (req, res) => {
         }
       );
 
-      slips.push(slip);
+      generatedSlips.push(slip);
     }
 
     res.status(200).json({
       success: true,
       message: "All salary slips generated successfully",
-      count: slips.length,
-      data: slips,
+      count: generatedSlips.length,
+      data: generatedSlips,
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -564,53 +658,10 @@ const paySalary = async (req, res) => {
       createdBy: req.user._id,
     });
 
-    const totalSalaryPaid = await LabourPayment.aggregate([
-      {
-        $match: {
-          companyId: req.user.companyId,
-          contractorId,
-          labourId: labour._id,
-          month: Number(month),
-          year: Number(year),
-          paymentType: "SALARY",
-          isDeleted: false,
-        },
-      },
-      {
-        $group: {
-          _id: null,
-          total: { $sum: "$amount" },
-        },
-      },
-    ]);
-
-    const paidTotal = totalSalaryPaid[0]?.total || 0;
-
-    const slip = await SalarySlip.findOne({
-      companyId: req.user.companyId,
-      contractorId,
-      labourId,
-      month: Number(month),
-      year: Number(year),
-      isDeleted: false,
-    });
-
-    if (slip) {
-      slip.paidAmount = paidTotal;
-      slip.balanceAmount = slip.netSalary - paidTotal;
-      slip.status =
-        paidTotal <= 0 ? "PENDING" : slip.balanceAmount <= 0 ? "PAID" : "PARTIAL";
-
-      await slip.save();
-    }
-
     res.status(201).json({
       success: true,
       message: "Salary payment added successfully",
-      data: {
-        payment,
-        salarySlip: slip || null,
-      },
+      data: payment,
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

@@ -14,6 +14,7 @@ const dashboardRoutes=require("./routes/dashboard.routes");
 const reportRoutes = require("./routes/report.routes");
 const exportRoutes = require("./routes/export.routes");
 const payrollSettingRoutes = require("./routes/payrollSetting.routes");
+const salarySlipRoutes = require("./routes/salarySlip.routes")
 
 
 
@@ -52,5 +53,8 @@ app.use("/api/reports", reportRoutes);
 app.use("/api/export", exportRoutes);
 
 app.use("/api/payroll-settings", payrollSettingRoutes);
+
+app.use("/api/salaryslip", salarySlipRoutes);
+
 
 module.exports = app;

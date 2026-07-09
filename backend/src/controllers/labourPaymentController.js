@@ -18,14 +18,16 @@ const createLabourPayment = async (req, res) => {
       remarks,
     } = req.body;
 
-    if (!labourId || !amount || !paymentType) {
+    if (!labourId || !month || !year || !amount || !paymentType) {
       return res.status(400).json({
         success: false,
-        message: "Labour, amount and payment type are required",
+        message: "Labour, month, year, amount and payment type are required",
       });
     }
 
-    if (!["ADVANCE", "SALARY", "BONUS", "DEDUCTION"].includes(paymentType)) {
+    const allowedTypes = ["ADVANCE", "SALARY", "BONUS", "DEDUCTION", "INCENTIVE"];
+
+    if (!allowedTypes.includes(paymentType)) {
       return res.status(400).json({
         success: false,
         message: "Invalid payment type",
@@ -53,8 +55,8 @@ const createLabourPayment = async (req, res) => {
       contractorId,
       labourId,
       paymentDate,
-      month: month || null,
-      year: year || null,
+      month,
+      year,
       amount,
       paymentType,
       paymentMode,
@@ -81,7 +83,7 @@ const getLabourPayments = async (req, res) => {
       contractorId,
       isDeleted: false,
     })
-      .populate("labourId", "name mobile")
+      .populate("labourId", "employeeCode name mobile")
       .populate("createdBy", "name role")
       .sort({ paymentDate: -1 });
 
@@ -105,7 +107,7 @@ const getPaymentsByLabour = async (req, res) => {
       labourId: req.params.labourId,
       isDeleted: false,
     })
-      .populate("labourId", "name mobile")
+      .populate("labourId", "employeeCode name mobile")
       .populate("createdBy", "name role")
       .sort({ paymentDate: -1 });
 
@@ -123,24 +125,6 @@ const updateLabourPayment = async (req, res) => {
   try {
     const contractorId = getContractorId(req.user);
 
-    const allowedFields = [
-      "paymentDate",
-      "month",
-      "year",
-      "amount",
-      "paymentType",
-      "paymentMode",
-      "remarks",
-    ];
-
-    const updateData = {};
-
-    allowedFields.forEach((field) => {
-      if (req.body[field] !== undefined) {
-        updateData[field] = req.body[field];
-      }
-    });
-
     const payment = await LabourPayment.findOneAndUpdate(
       {
         _id: req.params.id,
@@ -148,7 +132,7 @@ const updateLabourPayment = async (req, res) => {
         contractorId,
         isDeleted: false,
       },
-      updateData,
+      req.body,
       { new: true, runValidators: true }
     );
 
