@@ -3,18 +3,19 @@
 import React from "react"
 import Image from "next/image"
 import Link from "next/link"
+import { usePathname } from "next/navigation"
 
 const menu = [
-  { id: "dashboard", label: "Dashboard" },
-  { id: "users", label: "Users" },
-  { id: "labours", label: "Labours" },
-  { id: "sites", label: "Sites" },
-  { id: "attendance", label: "Attendance" },
-  { id: "payroll", label: "Payroll" },
-  { id: "advance", label: "Advance" },
-  { id: "reports", label: "Reports" },
-  { id: "profile", label: "Profile" },
-  { id: "settings", label: "Settings" },
+  { id: "dashboard", label: "Dashboard", href: "/" },
+  { id: "users", label: "Users", href: "/pages/contractorpages/users" },
+  { id: "labours", label: "Labours", href: "/pages/contractorpages/labours" },
+  { id: "sites", label: "Sites", href: "#" },
+  { id: "attendance", label: "Attendance", href: "#" },
+  { id: "payroll", label: "Payroll", href: "#" },
+  { id: "advance", label: "Advance", href: "#" },
+  { id: "reports", label: "Reports", href: "#" },
+  { id: "profile", label: "Profile", href: "/pages/profile" },
+  { id: "settings", label: "Settings", href: "#" },
 ]
 
 const Icon = ({ name }: { name: string }) => {
@@ -25,27 +26,27 @@ const Icon = ({ name }: { name: string }) => {
       )
     case "users":
       return (
-        <Image src="/assets/users.png" alt="Users" width={20} height={20} />
+        <Image src="/assets/users.png" alt="Users" width={20} height={20} style={{ height: "auto" }} />
       )
     case "labours":
       return (
-        <Image src="/assets/labours.png" alt="Labours" width={20} height={20} />
+        <Image src="/assets/labours.png" alt="Labours" width={20} height={20} style={{ height: "auto" }} />
       )
     case "sites":
       return (
-        <Image src="/assets/sites.png" alt="Sites" width={20} height={20} />
+        <Image src="/assets/sites.png" alt="Sites" width={20} height={20} style={{ height: "auto" }} />
       )
     case "attendance":
       return (
-        <Image src="/assets/attendance.png" alt="Attendance" width={20} height={20} />
+        <Image src="/assets/attendance.png" alt="Attendance" width={20} height={20} style={{ height: "auto" }} />
       )
     case "payroll":
       return (
-        <Image src="/assets/payroll.png" alt="Payroll" width={20} height={20} />
+        <Image src="/assets/payroll.png" alt="Payroll" width={20} height={20} style={{ height: "auto" }} />
       )
     case "advance":
       return (
-        <Image src="/assets/advance.png" alt="Advance" width={20} height={20} />
+        <Image src="/assets/advance.png" alt="Advance" width={20} height={20} style={{ height: "auto" }} />
       )
     case "reports":
       return (
@@ -57,7 +58,7 @@ const Icon = ({ name }: { name: string }) => {
       )
     case "settings":
       return (
-        <Image src="/assets/setting.png" alt="Settings" width={20} height={20} />
+        <Image src="/assets/setting.png" alt="Settings" width={20} height={20} style={{ height: "auto" }} />
       )
     default:
       return null
@@ -65,12 +66,14 @@ const Icon = ({ name }: { name: string }) => {
 }
 
 const Sidebar: React.FC = () => {
+  const pathname = usePathname()
+
   return (
-    <aside className="w-64 h-screen bg-white border-r-2 border-gray-400 shadow-sm">
+    <aside className="h-screen w-64 shrink-0 overflow-hidden border-r-2 border-gray-400 bg-white shadow-sm">
       <div className="px-6 py-6">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-indigo-50 rounded flex items-center justify-center">
-            <Image src="/assets/logo.svg" alt="Logo" width={28} height={28} />
+            <Image src="/assets/logo.svg" alt="Logo" width={28} height={28} style={{ height: "auto" }} />
           </div>
           <div>
             <h1 className="text-lg font-bold text-indigo-700">Kinetic LMS</h1>
@@ -80,11 +83,11 @@ const Sidebar: React.FC = () => {
 
         <nav className="mt-6">
           <ul className="space-y-1">
-            {menu.map((m, idx) => {
-              const active = m.id === "dashboard"
+            {menu.map((m) => {
+              const active = m.href === "/" ? pathname === "/" : pathname.startsWith(m.href)
               return (
                 <li key={m.id}>
-                  <Link href="#" className={`flex items-center gap-3 px-3 py-1 rounded-md transition-colors ${active ? 'bg-indigo-50 text-indigo-700' : 'text-gray-700 hover:bg-gray-100'}`}>
+                  <Link href={m.href} className={`flex items-center gap-3 px-3 py-1 rounded-md transition-colors ${active ? 'bg-indigo-50 text-indigo-700' : 'text-gray-700 hover:bg-gray-100'}`}>
                     <span className={`p-2 rounded ${active ? 'bg-indigo-100' : 'bg-transparent'}`}>
                       <Icon name={m.id} />
                     </span>

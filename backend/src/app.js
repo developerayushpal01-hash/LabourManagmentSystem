@@ -26,6 +26,23 @@ const app = express();
 app.use(express.json());
 app.use(cookieParser());
 
+const frontendOrigin = process.env.FRONTEND_URL || "http://localhost:3001";
+
+app.use((req, res, next) => {
+  if (req.headers.origin === frontendOrigin) {
+    res.header("Access-Control-Allow-Origin", frontendOrigin);
+    res.header("Access-Control-Allow-Credentials", "true");
+    res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    res.header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
+  }
+
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(204);
+  }
+
+  next();
+});
+
 app.use("/api/auth", authRoutes);
 
 app.use("/api/company", companyRotes);

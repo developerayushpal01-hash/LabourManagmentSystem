@@ -263,7 +263,7 @@ const logout = async (req, res) => {
 
 const getMe = async (req, res) => {
   try {
-    const user = await User.findById(req.user.userId)
+    const user = await User.findById(req.user._id)
       .select("-password")
       .populate("companyId");
 
@@ -319,7 +319,7 @@ const changePassword = async (req, res) => {
       });
     }
 
-    const user = await User.findById(req.user.userId);
+    const user = await User.findById(req.user._id);
 
     if (!user || user.isDeleted) {
       return res.status(404).json({
