@@ -50,8 +50,9 @@ const assignLabourToSite = async (req, res) => {
     }
 
     const alreadyAssigned = await LabourSite.findOne({
+      companyId: req.user.companyId,
+      contractorId,
       labourId,
-      siteId,
       status: "ACTIVE",
       isDeleted: false,
     });
@@ -59,7 +60,7 @@ const assignLabourToSite = async (req, res) => {
     if (alreadyAssigned) {
       return res.status(400).json({
         success: false,
-        message: "Labour already assigned to this site",
+        message: "Labour already has a site assigned and it cannot be changed",
       });
     }
 

@@ -9,7 +9,7 @@ const menu = [
   { id: "dashboard", label: "Dashboard", href: "/" },
   { id: "users", label: "Users", href: "/pages/contractorpages/users" },
   { id: "labours", label: "Labours", href: "/pages/contractorpages/labours" },
-  { id: "sites", label: "Sites", href: "#" },
+  { id: "sites", label: "Sites", href: "/pages/contractorpages/sites" },
   { id: "attendance", label: "Attendance", href: "#" },
   { id: "payroll", label: "Payroll", href: "#" },
   { id: "advance", label: "Advance", href: "#" },

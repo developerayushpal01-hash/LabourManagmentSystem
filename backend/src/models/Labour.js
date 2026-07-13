@@ -43,6 +43,7 @@ const labourSchema = new mongoose.Schema(
       type: String,
       required: true,
       trim: true,
+      match: [/^\d+$/, "Mobile number must contain digits only"],
     },
 
     gender: {

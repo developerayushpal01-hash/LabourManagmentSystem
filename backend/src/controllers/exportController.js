@@ -2,11 +2,142 @@ const ExcelJS = require("exceljs");
 const Attendance = require("../models/Attendance");
 const Labour = require("../models/Labour");
 const LabourPayment = require("../models/LabourPayment");
+const LabourSite = require("../models/LabourSite");
 
 const getContractorId = (user) => {
   return user.role === "CONTRACTOR"
     ? user._id
     : user.parentUserId;
+};
+
+const escapeRegex = (value) =>
+  value.replace(/[|\\{}()[\]^$+*?.]/g, "\\$&");
+
+const exportLabours = async (req, res) => {
+  try {
+    const { siteId, skillId, status, search = "" } = req.query;
+    const contractorId = getContractorId(req.user);
+    const baseScope = {
+      companyId: req.user.companyId,
+      contractorId,
+      isDeleted: false,
+    };
+    const labourFilter = { ...baseScope };
+
+    if (skillId) labourFilter.skillId = skillId;
+    if (status && status !== "ALL") {
+      if (!["ACTIVE", "INACTIVE", "BLOCKED"].includes(status)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid labour status filter",
+        });
+      }
+      labourFilter.status = status;
+    }
+
+    const normalizedSearch = String(search).trim();
+    if (normalizedSearch) {
+      const pattern = new RegExp(escapeRegex(normalizedSearch), "i");
+      labourFilter.$or = [
+        { name: pattern },
+        { mobile: pattern },
+        { labourCode: pattern },
+        { address: pattern },
+      ];
+    }
+
+    if (siteId) {
+      const siteAssignments = await LabourSite.find({
+        ...baseScope,
+        siteId,
+        status: "ACTIVE",
+      }).select("labourId");
+      labourFilter._id = {
+        $in: siteAssignments.map((assignment) => assignment.labourId),
+      };
+    }
+
+    const labours = await Labour.find(labourFilter)
+      .populate("skillId", "skillName skillCode defaultDailyWage")
+      .sort({ name: 1 });
+
+    const assignments = await LabourSite.find({
+      ...baseScope,
+      labourId: { $in: labours.map((labour) => labour._id) },
+      status: "ACTIVE",
+    }).populate("siteId", "siteName siteCode");
+
+    const siteByLabourId = new Map(
+      assignments.map((assignment) => [
+        assignment.labourId.toString(),
+        assignment.siteId,
+      ])
+    );
+
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = "LMS";
+    workbook.created = new Date();
+    const worksheet = workbook.addWorksheet("Labours");
+
+    worksheet.columns = [
+      { header: "Labour Code", key: "labourCode", width: 18 },
+      { header: "Name", key: "name", width: 25 },
+      { header: "Mobile", key: "mobile", width: 18 },
+      { header: "Site", key: "site", width: 25 },
+      { header: "Site Code", key: "siteCode", width: 16 },
+      { header: "Skill", key: "skill", width: 22 },
+      { header: "Gender", key: "gender", width: 12 },
+      { header: "Status", key: "status", width: 14 },
+      { header: "Daily Wage", key: "dailyWage", width: 16 },
+      { header: "Address", key: "address", width: 35 },
+    ];
+
+    const headerRow = worksheet.getRow(1);
+    headerRow.font = { bold: true, color: { argb: "FFFFFFFF" } };
+    headerRow.fill = {
+      type: "pattern",
+      pattern: "solid",
+      fgColor: { argb: "FF1F4E78" },
+    };
+    headerRow.alignment = { horizontal: "center", vertical: "middle" };
+
+    labours.forEach((labour) => {
+      const site = siteByLabourId.get(labour._id.toString());
+      worksheet.addRow({
+        labourCode: labour.labourCode,
+        name: labour.name,
+        mobile: labour.mobile,
+        site: site?.siteName || "",
+        siteCode: site?.siteCode || "",
+        skill: labour.skillId?.skillName || "",
+        gender: labour.gender,
+        status: labour.status,
+        dailyWage:
+          labour.dailyWage ?? labour.skillId?.defaultDailyWage ?? 0,
+        address: labour.address || "",
+      });
+    });
+
+    worksheet.views = [{ state: "frozen", ySplit: 1 }];
+    worksheet.autoFilter = { from: "A1", to: "J1" };
+
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    );
+    res.setHeader(
+      "Content-Disposition",
+      "attachment; filename=Labours_Filtered.xlsx"
+    );
+
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
 };
 
 const exportMonthlyAttendance = async (req, res) => {
@@ -473,6 +604,7 @@ const exportSalaryReport = async (req, res) => {
 
 
 module.exports = {
+  exportLabours,
   exportMonthlyAttendance,
   exportSalaryReport
 };

@@ -22,25 +22,53 @@ const siteSchema = new mongoose.Schema(
 
     siteCode: {
       type: String,
+      required: true,
       trim: true,
       uppercase: true,
     },
 
     clientName: {
       type: String,
+      required: true,
       trim: true,
-      default: "",
     },
 
-    location: {
+    contactPerson: {
       type: String,
       trim: true,
       default: "",
     },
 
+    contactMobile: {
+      type: String,
+      required: true,
+      trim: true,
+      match: [/^\d+$/, "Contact mobile must contain digits only"],
+    },
+
+    contactEmail: {
+      type: String,
+      required: true,
+      trim: true,
+      lowercase: true,
+      match: [/^[^\s@]+@[^\s@]+\.[^\s@]+$/, "Enter a valid contact email"],
+    },
+
+    projectValue: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
+
+    location: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
     startDate: {
       type: Date,
-      default: null,
+      required: true,
     },
 
     endDate: {
