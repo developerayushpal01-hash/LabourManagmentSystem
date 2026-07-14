@@ -195,9 +195,7 @@ const LaboursPage = () => {
   }
 
   const openCreate = () => {
-    setEditingLabour(null)
-    setForm(emptyForm)
-    setIsFormOpen(true)
+    router.push("/pages/contractorpages/labours/create")
   }
 
   const openEdit = (labour: Labour) => {

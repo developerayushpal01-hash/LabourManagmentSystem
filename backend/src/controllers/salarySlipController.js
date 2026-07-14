@@ -51,7 +51,10 @@ const getMonthlyAttendanceSummary = async ({
 
     if (item.status === "ABSENT") absentDays++;
     if (item.status === "LEAVE") leaveDays++;
-    if (item.status === "HOLIDAY") holidayDays++;
+    if (item.status === "HOLIDAY") {
+      holidayDays++;
+      basicSalary += item.wageAtThatDay;
+    }
 
     overtimeAmount += item.overtimeAmount || 0;
   });

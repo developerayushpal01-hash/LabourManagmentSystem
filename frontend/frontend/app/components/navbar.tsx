@@ -132,7 +132,7 @@ const Navbar = () => {
     .map((word) => word.charAt(0).toUpperCase())
     .join("") || "U"
   return (
-    <header className="relative z-30 flex w-full shrink-0 items-center justify-between border-b-2 border-gray-400 bg-white px-6 py-3">
+    <header className="sticky top-0 z-30 flex w-full shrink-0 items-center justify-between border-b-2 border-gray-400 bg-white px-6 py-3">
       <div className="flex w-1/2 items-center gap-4">
         <div className="w-full max-w-md">
           <div className="relative ms-50 w-full">

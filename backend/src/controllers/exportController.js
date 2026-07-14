@@ -142,229 +142,346 @@ const exportLabours = async (req, res) => {
 
 const exportMonthlyAttendance = async (req, res) => {
   try {
-    const { month, year } = req.query;
+    const { month, year, siteId, search = "" } = req.query;
+    const monthNumber = Number(month);
+    const yearNumber = Number(year);
 
-    if (!month || !year) {
+    if (
+      !Number.isInteger(monthNumber) ||
+      monthNumber < 1 ||
+      monthNumber > 12 ||
+      !Number.isInteger(yearNumber)
+    ) {
       return res.status(400).json({
         success: false,
-        message: "Month and year are required",
+        message: "Valid month and year are required",
       });
     }
 
     const contractorId = getContractorId(req.user);
-
-    const startDate = new Date(year, month - 1, 1);
-    const endDate = new Date(year, month, 0, 23, 59, 59, 999);
-
-    const attendance = await Attendance.find({
+    const baseScope = {
       companyId: req.user.companyId,
       contractorId,
-      attendanceDate: {
-        $gte: startDate,
-        $lte: endDate,
-      },
       isDeleted: false,
-    })
-      .populate("labourId", "employeeCode name mobile")
-      .populate("skillId", "skillName")
-      .populate("siteId", "siteName siteCode")
-      .sort({ attendanceDate: 1 });
+    };
+    const labourFilter = { ...baseScope };
+
+    const normalizedSearch = String(search).trim();
+    if (normalizedSearch) {
+      const pattern = new RegExp(escapeRegex(normalizedSearch), "i");
+      labourFilter.$or = [
+        { name: pattern },
+        { mobile: pattern },
+        { labourCode: pattern },
+      ];
+    }
+
+    if (siteId) {
+      const selectedAssignments = await LabourSite.find({
+        ...baseScope,
+        siteId,
+        status: "ACTIVE",
+      }).select("labourId");
+      labourFilter._id = {
+        $in: selectedAssignments.map((assignment) => assignment.labourId),
+      };
+    }
+
+    const labours = await Labour.find(labourFilter)
+      .select("labourCode name mobile")
+      .sort({ name: 1 });
+
+    const labourIds = labours.map((labour) => labour._id);
+    const assignments = await LabourSite.find({
+      ...baseScope,
+      labourId: { $in: labourIds },
+      status: "ACTIVE",
+    }).populate("siteId", "siteName siteCode");
+
+    const siteByLabourId = new Map(
+      assignments.map((assignment) => [
+        assignment.labourId.toString(),
+        assignment.siteId,
+      ])
+    );
+
+    const startDate = new Date(yearNumber, monthNumber - 1, 1);
+    const endDate = new Date(
+      yearNumber,
+      monthNumber,
+      0,
+      23,
+      59,
+      59,
+      999
+    );
+    const attendanceFilter = {
+      ...baseScope,
+      labourId: { $in: labourIds },
+      attendanceDate: { $gte: startDate, $lte: endDate },
+    };
+    if (siteId) attendanceFilter.siteId = siteId;
+
+    const attendance = await Attendance.find(attendanceFilter).sort({
+      attendanceDate: 1,
+    });
+
+    const attendanceByLabourAndDay = new Map();
+    attendance.forEach((item) => {
+      const day = item.attendanceDate.getUTCDate();
+      attendanceByLabourAndDay.set(
+        `${item.labourId.toString()}-${day}`,
+        item.status
+      );
+    });
+
+    const daysInMonth = new Date(
+      yearNumber,
+      monthNumber,
+      0
+    ).getDate();
+    const monthName = new Intl.DateTimeFormat("en-IN", {
+      month: "long",
+      year: "numeric",
+    }).format(new Date(yearNumber, monthNumber - 1, 1));
 
     const workbook = new ExcelJS.Workbook();
-    workbook.creator = "LMS";
+    workbook.creator = "Kinetic LMS";
     workbook.created = new Date();
+    const worksheet = workbook.addWorksheet("Monthly Attendance", {
+      views: [{ state: "frozen", xSplit: 4, ySplit: 6 }],
+    });
 
-    const worksheet = workbook.addWorksheet("Attendance Report");
+    const summaryHeaders = [
+      "Month Days",
+      "Present",
+      "Absent",
+      "Half Day",
+      "Leave",
+      "Paid Holiday",
+    ];
+    const firstSummaryColumn = 5 + daysInMonth;
+    const lastColumn = firstSummaryColumn + summaryHeaders.length - 1;
 
-    // ==========================
-    // Title
-    // ==========================
-
-    worksheet.mergeCells("A1:K1");
-    worksheet.getCell("A1").value = "LABOUR MANAGEMENT SYSTEM";
-    worksheet.getCell("A1").font = {
+    worksheet.mergeCells(1, 1, 1, lastColumn);
+    worksheet.getCell(1, 1).value = "KINETIC LMS - MONTHLY ATTENDANCE";
+    worksheet.getCell(1, 1).font = {
       size: 18,
       bold: true,
+      color: { argb: "FFFFFFFF" },
     };
-    worksheet.getCell("A1").alignment = {
-      horizontal: "center",
+    worksheet.getCell(1, 1).fill = {
+      type: "pattern",
+      pattern: "solid",
+      fgColor: { argb: "FF3730D4" },
     };
-
-    worksheet.mergeCells("A2:K2");
-    worksheet.getCell("A2").value = "MONTHLY ATTENDANCE REPORT";
-    worksheet.getCell("A2").font = {
-      size: 14,
-      bold: true,
-    };
-    worksheet.getCell("A2").alignment = {
-      horizontal: "center",
-    };
-
-    worksheet.getCell("A4").value = "Month";
-    worksheet.getCell("B4").value = month;
-
-    worksheet.getCell("D4").value = "Year";
-    worksheet.getCell("E4").value = year;
-
-    worksheet.getCell("G4").value = "Generated";
-    worksheet.getCell("H4").value = new Date().toLocaleString();
-
-    // ==========================
-    // Columns
-    // ==========================
-
-    worksheet.columns = [
-      { header: "Date", key: "date", width: 15 },
-      { header: "Employee Code", key: "employeeCode", width: 18 },
-      { header: "Labour Name", key: "labourName", width: 25 },
-      { header: "Mobile", key: "mobile", width: 18 },
-      { header: "Skill", key: "skill", width: 20 },
-      { header: "Site", key: "site", width: 25 },
-      { header: "Status", key: "status", width: 15 },
-      { header: "Daily Wage", key: "wage", width: 15 },
-      { header: "OT Hours", key: "otHours", width: 12 },
-      { header: "OT Amount", key: "otAmount", width: 15 },
-      { header: "Total Amount", key: "totalAmount", width: 18 },
-      { header: "Remarks", key: "remarks", width: 30 },
-    ];
-
-    worksheet.spliceRows(5, 1);
-
-    worksheet.insertRow(6, [
-      "Date",
-      "Employee Code",
-      "Labour Name",
-      "Mobile",
-      "Skill",
-      "Site",
-      "Status",
-      "Daily Wage",
-      "OT Hours",
-      "OT Amount",
-      "Total Amount",
-      "Remarks",
-    ]);
-
-    const headerRow = worksheet.getRow(6);
-
-    headerRow.font = {
-      bold: true,
-      color: {
-        argb: "FFFFFF",
-      },
-    };
-
-    headerRow.alignment = {
+    worksheet.getCell(1, 1).alignment = {
       horizontal: "center",
       vertical: "middle",
     };
+    worksheet.getRow(1).height = 30;
 
-    headerRow.fill = {
-      type: "pattern",
-      pattern: "solid",
-      fgColor: {
-        argb: "1F4E78",
-      },
+    worksheet.mergeCells(2, 1, 2, lastColumn);
+    worksheet.getCell(2, 1).value =
+      `${monthName}${siteId ? " - Filtered Site" : " - All Sites"}`;
+    worksheet.getCell(2, 1).font = { bold: true, color: { argb: "FF475569" } };
+    worksheet.getCell(2, 1).alignment = { horizontal: "center" };
+
+    worksheet.mergeCells(3, 1, 3, lastColumn);
+    worksheet.getCell(3, 1).value =
+      "P = Present | A = Absent | HD = Half Day | L = Leave | PH = Paid Holiday | - = Not Marked";
+    worksheet.getCell(3, 1).font = {
+      italic: true,
+      size: 10,
+      color: { argb: "FF64748B" },
     };
+    worksheet.getCell(3, 1).alignment = { horizontal: "center" };
 
-    let grandTotal = 0;
+    worksheet.getCell(4, 1).value = "Generated";
+    worksheet.getCell(4, 2).value = new Date();
+    worksheet.getCell(4, 2).numFmt = "dd-mmm-yyyy hh:mm";
 
-    attendance.forEach((item) => {
-      let totalAmount = 0;
-
-      if (item.status === "PRESENT") {
-        totalAmount += item.wageAtThatDay;
-      }
-
-      if (item.status === "HALF_DAY") {
-        totalAmount += item.wageAtThatDay / 2;
-      }
-
-      totalAmount += item.overtimeAmount || 0;
-
-      grandTotal += totalAmount;
-
-      worksheet.addRow({
-        date: item.attendanceDate.toISOString().split("T")[0],
-
-        employeeCode:
-          item.labourId?.employeeCode || "",
-
-        labourName:
-          item.labourId?.name || "",
-
-        mobile:
-          item.labourId?.mobile || "",
-
-        skill:
-          item.skillId?.skillName || "",
-
-        site:
-          item.siteId?.siteName || "",
-
-        status:
-          item.status,
-
-        wage:
-          item.wageAtThatDay,
-
-        otHours:
-          item.overtimeHours || 0,
-
-        otAmount:
-          item.overtimeAmount || 0,
-
-        totalAmount,
-
-        remarks:
-          item.remarks || "",
-      });
+    const headerValues = [
+      "Labour Code",
+      "Labour Name",
+      "Mobile",
+      "Site",
+      ...Array.from({ length: daysInMonth }, (_, index) => index + 1),
+      ...summaryHeaders,
+    ];
+    const headerRow = worksheet.getRow(6);
+    headerRow.values = headerValues;
+    headerRow.height = 32;
+    headerRow.eachCell((cell) => {
+      cell.font = { bold: true, color: { argb: "FFFFFFFF" }, size: 9 };
+      cell.fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "FF1F4E78" },
+      };
+      cell.alignment = {
+        horizontal: "center",
+        vertical: "middle",
+        wrapText: true,
+      };
+      cell.border = {
+        top: { style: "thin", color: { argb: "FFCBD5E1" } },
+        left: { style: "thin", color: { argb: "FFCBD5E1" } },
+        bottom: { style: "thin", color: { argb: "FFCBD5E1" } },
+        right: { style: "thin", color: { argb: "FFCBD5E1" } },
+      };
     });
 
-    // ==========================
-    // Grand Total
-    // ==========================
+    worksheet.getColumn(1).width = 16;
+    worksheet.getColumn(2).width = 24;
+    worksheet.getColumn(3).width = 16;
+    worksheet.getColumn(4).width = 24;
+    for (let day = 1; day <= daysInMonth; day++) {
+      worksheet.getColumn(4 + day).width = 5;
+    }
+    for (let column = firstSummaryColumn; column <= lastColumn; column++) {
+      worksheet.getColumn(column).width = 13;
+    }
 
-    const totalRow = worksheet.addRow([]);
-
-    totalRow.getCell(10).value = "Grand Total";
-
-    totalRow.getCell(11).value = grandTotal;
-
-    totalRow.font = {
-      bold: true,
+    const statusShort = {
+      PRESENT: "P",
+      ABSENT: "A",
+      HALF_DAY: "HD",
+      LEAVE: "L",
+      HOLIDAY: "PH",
+    };
+    const statusColor = {
+      PRESENT: "FF10B981",
+      ABSENT: "FFEF4444",
+      HALF_DAY: "FFF59E0B",
+      LEAVE: "FF0EA5E9",
+      HOLIDAY: "FF7C3AED",
+    };
+    const grand = {
+      PRESENT: 0,
+      ABSENT: 0,
+      HALF_DAY: 0,
+      LEAVE: 0,
+      HOLIDAY: 0,
     };
 
-    // ==========================
-    // Freeze
-    // ==========================
+    labours.forEach((labour) => {
+      const labourId = labour._id.toString();
+      const counts = {
+        PRESENT: 0,
+        ABSENT: 0,
+        HALF_DAY: 0,
+        LEAVE: 0,
+        HOLIDAY: 0,
+      };
+      const dailyValues = [];
 
-    worksheet.views = [
-      {
-        state: "frozen",
-        ySplit: 6,
-      },
-    ];
+      for (let day = 1; day <= daysInMonth; day++) {
+        const status = attendanceByLabourAndDay.get(`${labourId}-${day}`);
+        dailyValues.push(status ? statusShort[status] : "-");
+        if (status) {
+          counts[status]++;
+          grand[status]++;
+        }
+      }
+
+      const site = siteByLabourId.get(labourId);
+      const row = worksheet.addRow([
+        labour.labourCode,
+        labour.name,
+        labour.mobile,
+        site?.siteName || "Not assigned",
+        ...dailyValues,
+        daysInMonth,
+        counts.PRESENT,
+        counts.ABSENT,
+        counts.HALF_DAY,
+        counts.LEAVE,
+        counts.HOLIDAY,
+      ]);
+      row.height = 24;
+      row.eachCell((cell, columnNumber) => {
+        cell.alignment = {
+          horizontal: columnNumber <= 4 ? "left" : "center",
+          vertical: "middle",
+        };
+        cell.border = {
+          top: { style: "thin", color: { argb: "FFE2E8F0" } },
+          left: { style: "thin", color: { argb: "FFE2E8F0" } },
+          bottom: { style: "thin", color: { argb: "FFE2E8F0" } },
+          right: { style: "thin", color: { argb: "FFE2E8F0" } },
+        };
+      });
+
+      for (let day = 1; day <= daysInMonth; day++) {
+        const status = attendanceByLabourAndDay.get(`${labourId}-${day}`);
+        const cell = row.getCell(4 + day);
+        if (status) {
+          cell.fill = {
+            type: "pattern",
+            pattern: "solid",
+            fgColor: { argb: statusColor[status] },
+          };
+          cell.font = { bold: true, color: { argb: "FFFFFFFF" }, size: 9 };
+        } else {
+          cell.fill = {
+            type: "pattern",
+            pattern: "solid",
+            fgColor: { argb: "FFF1F5F9" },
+          };
+          cell.font = { color: { argb: "FF94A3B8" } };
+        }
+      }
+    });
+
+    const totalRow = worksheet.addRow([
+      "",
+      "ALL LABOURS TOTAL",
+      "",
+      "",
+      ...Array(daysInMonth).fill(""),
+      daysInMonth,
+      grand.PRESENT,
+      grand.ABSENT,
+      grand.HALF_DAY,
+      grand.LEAVE,
+      grand.HOLIDAY,
+    ]);
+    totalRow.font = { bold: true, color: { argb: "FF312E81" } };
+    totalRow.fill = {
+      type: "pattern",
+      pattern: "solid",
+      fgColor: { argb: "FFE0E7FF" },
+    };
+    totalRow.eachCell((cell) => {
+      cell.alignment = { horizontal: "center", vertical: "middle" };
+      cell.border = {
+        top: { style: "thin", color: { argb: "FF818CF8" } },
+        bottom: { style: "thin", color: { argb: "FF818CF8" } },
+      };
+    });
 
     worksheet.autoFilter = {
-      from: "A6",
-      to: "L6",
+      from: { row: 6, column: 1 },
+      to: { row: 6, column: lastColumn },
     };
-
-    const fileName = `Attendance_${month}_${year}.xlsx`;
+    worksheet.pageSetup = {
+      orientation: "landscape",
+      fitToPage: true,
+      fitToWidth: 1,
+      fitToHeight: 0,
+      paperSize: 9,
+    };
 
     res.setHeader(
       "Content-Type",
       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     );
-
     res.setHeader(
       "Content-Disposition",
-      `attachment; filename=${fileName}`
+      `attachment; filename=Attendance_${yearNumber}_${String(monthNumber).padStart(2, "0")}.xlsx`
     );
-
     await workbook.xlsx.write(res);
-
     res.end();
   } catch (error) {
     res.status(500).json({
@@ -373,7 +490,6 @@ const exportMonthlyAttendance = async (req, res) => {
     });
   }
 };
-
 
 const exportSalaryReport = async (req, res) => {
   try {

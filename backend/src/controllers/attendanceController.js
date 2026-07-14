@@ -12,6 +12,24 @@ const markAttendance = async (req, res) => {
       });
     }
 
+    const selectedAttendanceDate = new Date(attendanceDate);
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999);
+
+    if (Number.isNaN(selectedAttendanceDate.getTime())) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid attendance date",
+      });
+    }
+
+    if (selectedAttendanceDate > todayEnd) {
+      return res.status(400).json({
+        success: false,
+        message: "Future date attendance cannot be marked",
+      });
+    }
+
     const labour = await Labour.findOne({
       _id: labourId,
       companyId: req.user.companyId,
