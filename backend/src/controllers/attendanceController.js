@@ -1,5 +1,7 @@
-const Attendance = require("../models/Attendance");
+﻿const Attendance = require("../models/Attendance");
 const Labour = require("../models/Labour");
+
+const getContractorId = (user) => user.role === "CONTRACTOR" ? user._id : user.parentUserId;
 
 const markAttendance = async (req, res) => {
   try {
@@ -10,6 +12,12 @@ const markAttendance = async (req, res) => {
         success: false,
         message: "Labour and attendance date are required",
       });
+    }
+
+    const numericOvertimeHours = Number(overtimeHours ?? 0);
+    const numericOvertimeAmount = overtimeAmount === null || overtimeAmount === undefined || overtimeAmount === "" ? null : Number(overtimeAmount);
+    if (!Number.isFinite(numericOvertimeHours) || numericOvertimeHours < 0 || (numericOvertimeAmount !== null && (!Number.isFinite(numericOvertimeAmount) || numericOvertimeAmount < 0))) {
+      return res.status(400).json({ success: false, message: "Overtime hours and amount cannot be negative" });
     }
 
     const selectedAttendanceDate = new Date(attendanceDate);
@@ -33,7 +41,7 @@ const markAttendance = async (req, res) => {
     const labour = await Labour.findOne({
       _id: labourId,
       companyId: req.user.companyId,
-      contractorId: req.user._id,
+      contractorId: getContractorId(req.user),
       isDeleted: false,
     }).populate("skillId", "defaultDailyWage");
 
@@ -44,7 +52,7 @@ const markAttendance = async (req, res) => {
       });
     }
 
-    const wageType = labour.dailyWage ? "CUSTOM" : "SKILL_BASED";
+    const wageType = labour.dailyWage !== null && labour.dailyWage !== undefined ? "CUSTOM" : "SKILL_BASED";
     const wageAtThatDay = labour.dailyWage ?? labour.skillId.defaultDailyWage;
 
     const existingDeleted = await Attendance.findOne({
@@ -57,8 +65,8 @@ if (existingDeleted) {
   existingDeleted.isDeleted = false;
   existingDeleted.status = status || "PRESENT";
   existingDeleted.siteId = siteId;
-  existingDeleted.overtimeHours = overtimeHours || 0;
-  existingDeleted.overtimeAmount = overtimeAmount || 0;
+  existingDeleted.overtimeHours = numericOvertimeHours;
+  existingDeleted.overtimeAmount = numericOvertimeAmount;
   existingDeleted.remarks = remarks || "";
   existingDeleted.markedBy = req.user._id;
 
@@ -73,7 +81,7 @@ if (existingDeleted) {
 
     const attendance = await Attendance.create({
       companyId: req.user.companyId,
-      contractorId: req.user._id,
+      contractorId: getContractorId(req.user),
       supervisorId: labour.supervisorId,
       labourId: labour._id,
       skillId: labour.skillId._id,
@@ -82,8 +90,8 @@ if (existingDeleted) {
       status: status || "PRESENT",
       wageType,
       wageAtThatDay,
-      overtimeHours: overtimeHours || 0,
-      overtimeAmount: overtimeAmount || 0,
+      overtimeHours: numericOvertimeHours,
+      overtimeAmount: numericOvertimeAmount,
       remarks,
       markedBy: req.user._id,
     });
@@ -117,7 +125,7 @@ const getTodayAttendance = async (req, res) => {
 
     const attendance = await Attendance.find({
       companyId: req.user.companyId,
-      contractorId: req.user._id,
+      contractorId: getContractorId(req.user),
       attendanceDate: { $gte: start, $lte: end },
       isDeleted: false,
     })
@@ -152,7 +160,7 @@ const getMonthlyAttendance = async (req, res) => {
 
     const attendance = await Attendance.find({
       companyId: req.user.companyId,
-      contractorId: req.user._id,
+      contractorId: getContractorId(req.user),
       attendanceDate: { $gte: startDate, $lte: endDate },
       isDeleted: false,
     })
@@ -176,8 +184,19 @@ const updateAttendance = async (req, res) => {
       "status",
       "overtimeHours",
       "overtimeAmount",
+      "overtimeRate",
       "remarks",
     ];
+
+    for (const field of ["overtimeHours", "overtimeAmount", "overtimeRate"]) {
+      if (req.body[field] !== undefined && req.body[field] !== null && req.body[field] !== "") {
+        const value = Number(req.body[field]);
+        if (!Number.isFinite(value) || value < 0) return res.status(400).json({ success: false, message: "Overtime values cannot be negative" });
+        req.body[field] = value;
+      } else if (field === "overtimeAmount" && (req.body[field] === "" || req.body[field] === null)) {
+        req.body[field] = null;
+      }
+    }
 
     const updateData = {};
 
@@ -191,7 +210,7 @@ const updateAttendance = async (req, res) => {
       {
         _id: req.params.id,
         companyId: req.user.companyId,
-        contractorId: req.user._id,
+        contractorId: getContractorId(req.user),
         isDeleted: false,
       },
       updateData,
@@ -221,7 +240,7 @@ const deleteAttendance = async (req, res) => {
       {
         _id: req.params.id,
         companyId: req.user.companyId,
-        contractorId: req.user._id,
+        contractorId: getContractorId(req.user),
         isDeleted: false,
       },
       { isDeleted: true },

@@ -1,4 +1,4 @@
-const Labour = require("../models/Labour");
+﻿const Labour = require("../models/Labour");
 const Skill = require("../models/Skill");
 const Site = require("../models/Site");
 const LabourSite = require("../models/LabourSite");
@@ -61,6 +61,16 @@ const addAssignedSites = async (labours, contractorId, companyId) => {
   });
 };
 
+const statutoryDetails = (body, current = {}) => {
+  const isPFApplicable = body.isPFApplicable === undefined ? Boolean(current.isPFApplicable) : body.isPFApplicable === true || body.isPFApplicable === "true";
+  const isESICApplicable = body.isESICApplicable === undefined ? Boolean(current.isESICApplicable) : body.isESICApplicable === true || body.isESICApplicable === "true";
+  const pfUanNumber = isPFApplicable ? String(body.pfUanNumber ?? current.pfUanNumber ?? "").replace(/\D/g, "") : null;
+  const esicIpNumber = isESICApplicable ? String(body.esicIpNumber ?? current.esicIpNumber ?? "").replace(/\D/g, "") : null;
+  if (isPFApplicable && !/^\d{12}$/.test(pfUanNumber)) return { error: "PF enabled labour requires a valid 12-digit UAN number" };
+  if (isESICApplicable && !/^\d{10}$/.test(esicIpNumber)) return { error: "ESIC enabled labour requires a valid 10-digit IP number" };
+  return { isPFApplicable, pfUanNumber, isESICApplicable, esicIpNumber };
+};
+
 const createLabour = async (req, res) => {
   try {
     const {
@@ -73,6 +83,10 @@ const createLabour = async (req, res) => {
       dob,
       address,
       dailyWage,
+      isPFApplicable,
+      pfUanNumber,
+      isESICApplicable,
+      esicIpNumber,
     } = req.body;
 
     if (!skillId || !siteId || !name || !mobile || !gender) {
@@ -101,6 +115,8 @@ const createLabour = async (req, res) => {
     }
 
     const contractorId = getContractorId(req.user);
+    const statutory = statutoryDetails({ isPFApplicable, pfUanNumber, isESICApplicable, esicIpNumber });
+    if (statutory.error) return res.status(400).json({ success: false, message: statutory.error });
 
     // Skill validation
     const skill = await Skill.findOne({
@@ -164,6 +180,10 @@ const createLabour = async (req, res) => {
       gender,
       dob: dob || null,
       address: address || "",
+      isPFApplicable: statutory.isPFApplicable,
+      pfUanNumber: statutory.pfUanNumber,
+      isESICApplicable: statutory.isESICApplicable,
+      esicIpNumber: statutory.esicIpNumber,
       dailyWage:
         dailyWage !== undefined && dailyWage !== ""
           ? Number(dailyWage)
@@ -225,7 +245,7 @@ const createLabour = async (req, res) => {
       return res.status(400).json({
         success: false,
         message:
-          "Labour code or mobile number already exists",
+          "Labour code, mobile, PF UAN or ESIC IP number already exists",
       });
     }
 
@@ -307,7 +327,15 @@ const updateLabour = async (req, res) => {
       dailyWage,
       skillId,
       siteId,
+      isPFApplicable,
+      pfUanNumber,
+      isESICApplicable,
+      esicIpNumber,
     } = req.body;
+    const currentLabour = await Labour.findOne({ _id: req.params.id, companyId: req.user.companyId, contractorId, isDeleted: false });
+    if (!currentLabour) return res.status(404).json({ success: false, message: "Labour not found" });
+    const statutory = statutoryDetails({ isPFApplicable, pfUanNumber, isESICApplicable, esicIpNumber }, currentLabour);
+    if (statutory.error) return res.status(400).json({ success: false, message: statutory.error });
 
     if (!name || !mobile || !gender || !skillId) {
       return res.status(400).json({
@@ -417,6 +445,10 @@ const updateLabour = async (req, res) => {
       ...(gender !== undefined && { gender }),
       ...(dob !== undefined && { dob: dob || null }),
       ...(address !== undefined && { address }),
+      isPFApplicable: statutory.isPFApplicable,
+      pfUanNumber: statutory.pfUanNumber,
+      isESICApplicable: statutory.isESICApplicable,
+      esicIpNumber: statutory.esicIpNumber,
       ...(dailyWage !== undefined && {
         dailyWage:
           dailyWage === "" || dailyWage === null ? null : Number(dailyWage),
@@ -472,6 +504,7 @@ const updateLabour = async (req, res) => {
       data,
     });
   } catch (error) {
+    if (error.code === 11000) return res.status(400).json({ success: false, message: "PF UAN or ESIC IP number already exists" });
     res.status(500).json({ success: false, message: error.message });
   }
 };
@@ -552,3 +585,6 @@ module.exports = {
   changeLabourStatus,
   deleteLabour,
 };
+
+
+

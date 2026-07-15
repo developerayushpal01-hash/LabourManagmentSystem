@@ -1,4 +1,4 @@
-const LabourPayment = require("../models/LabourPayment");
+﻿const LabourPayment = require("../models/LabourPayment");
 const Labour = require("../models/Labour");
 
 const getContractorId = (user) => {
@@ -54,6 +54,8 @@ const createLabourPayment = async (req, res) => {
       companyId: req.user.companyId,
       contractorId,
       labourId,
+      labourNameSnapshot: labour.name,
+      labourCodeSnapshot: labour.labourCode,
       paymentDate,
       month,
       year,
@@ -191,3 +193,4 @@ module.exports = {
   updateLabourPayment,
   deleteLabourPayment,
 };
+

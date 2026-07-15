@@ -1,8 +1,13 @@
-const ExcelJS = require("exceljs");
+﻿const ExcelJS = require("exceljs");
 const Attendance = require("../models/Attendance");
 const Labour = require("../models/Labour");
 const LabourPayment = require("../models/LabourPayment");
 const LabourSite = require("../models/LabourSite");
+const SalarySlip = require("../models/SalarySlip");
+
+const PayrollSetting = require("../models/PayrollSetting");
+const SalaryPayment = require("../models/SalaryPayment");
+const { calculateSalary } = require("../services/payrollCalculationService");
 
 const getContractorId = (user) => {
   return user.role === "CONTRACTOR"
@@ -493,234 +498,97 @@ const exportMonthlyAttendance = async (req, res) => {
 
 const exportSalaryReport = async (req, res) => {
   try {
-    const { month, year } = req.query;
-
-    if (!month || !year) {
-      return res.status(400).json({
-        success: false,
-        message: "Month and year are required",
-      });
-    }
-
+    const { month, year, siteId, status, search = "" } = req.query;
+    const monthNumber = Number(month);
+    const yearNumber = Number(year);
+    if (!Number.isInteger(monthNumber) || monthNumber < 1 || monthNumber > 12 || !Number.isInteger(yearNumber)) return res.status(400).json({ success: false, message: "Valid month and year are required" });
     const contractorId = getContractorId(req.user);
-
-    const startDate = new Date(year, month - 1, 1);
-    const endDate = new Date(year, month, 0, 23, 59, 59, 999);
-
-    const labours = await Labour.find({
-      companyId: req.user.companyId,
-      contractorId,
-      isDeleted: false,
-    }).sort({ name: 1 });
-
+    const baseScope = { companyId: req.user.companyId, contractorId, isDeleted: false };
+    const labourFilter = { ...baseScope };
+    const normalizedSearch = String(search).trim();
+    if (normalizedSearch) {
+      const expression = new RegExp(escapeRegex(normalizedSearch), "i");
+      labourFilter.$or = [{ labourCode: expression }, { name: expression }, { mobile: expression }];
+    }
+    if (siteId) {
+      const assignments = await LabourSite.find({ ...baseScope, siteId, status: "ACTIVE" }).select("labourId");
+      labourFilter._id = { $in: assignments.map((assignment) => assignment.labourId) };
+    }
+    const labourIds = await Labour.find(labourFilter).distinct("_id");
+    const salaryFilter = { ...baseScope, month: monthNumber, year: yearNumber, labourId: { $in: labourIds } };
+    if (status) salaryFilter.status = status;
+    let salaries = await SalarySlip.find(salaryFilter)
+      .populate("labourId", "labourCode name mobile").populate("skillId", "skillName").sort({ createdAt: 1 }).lean();
+    if (!status || status === "DRAFT") {
+      const exportedIds = new Set(salaries.map((salary) => salary.labourId?._id?.toString() || salary.labourId?.toString()));
+      const missingLabours = await Labour.find({ ...labourFilter, _id: { $in: labourIds.filter((id) => !exportedIds.has(id.toString())) } }).populate("skillId").lean();
+      const setting = await PayrollSetting.findOne(baseScope).lean() || {};
+      const startDate = new Date(yearNumber, monthNumber - 1, 1);
+      const endDate = new Date(yearNumber, monthNumber, 0, 23, 59, 59, 999);
+      for (const labour of missingLabours) {
+        if (!labour.skillId || labour.status !== "ACTIVE") continue;
+        const [attendanceRecords, labourPayments, salaryPayments] = await Promise.all([
+          Attendance.find({ ...baseScope, labourId: labour._id, attendanceDate: { $gte: startDate, $lte: endDate } }).lean(),
+          LabourPayment.find({ ...baseScope, labourId: labour._id, month: monthNumber, year: yearNumber }).lean(),
+          SalaryPayment.find({ ...baseScope, labourId: labour._id, month: monthNumber, year: yearNumber }).lean(),
+        ]);
+        const total = (records, field = "amount") => records.reduce((sum, item) => sum + Number(item[field] || 0), 0);
+        const result = calculateSalary({
+          labour, skill: labour.skillId, attendanceRecords, payrollSetting: setting,
+          bonus: total(labourPayments.filter((item) => item.paymentType === "BONUS")),
+          incentive: total(labourPayments.filter((item) => item.paymentType === "INCENTIVE")),
+          advance: total(labourPayments.filter((item) => item.paymentType === "ADVANCE" && item.isAdjusted !== true)),
+          otherDeduction: total(labourPayments.filter((item) => item.paymentType === "DEDUCTION")),
+          paidAmount: total(labourPayments.filter((item) => item.paymentType === "SALARY")) + total(salaryPayments, "paidAmount"),
+          salaryCycleDays: setting.salaryCycle === "FIXED_30_DAYS" ? 30 : new Date(yearNumber, monthNumber, 0).getDate(),
+          isFinalized: false,
+        });
+        salaries.push({ labourId: labour, skillId: labour.skillId, month: monthNumber, year: yearNumber, ...result });
+      }
+    }
+    if (!salaries.length) return res.status(404).json({ success: false, message: "No salary records found for the selected filters." });
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet("Salary Report");
-
-    worksheet.mergeCells("A1:N1");
-    worksheet.getCell("A1").value = "LABOUR MANAGEMENT SYSTEM";
-    worksheet.getCell("A1").font = { size: 18, bold: true };
-    worksheet.getCell("A1").alignment = { horizontal: "center" };
-
-    worksheet.mergeCells("A2:N2");
-    worksheet.getCell("A2").value = "MONTHLY SALARY REPORT";
-    worksheet.getCell("A2").font = { size: 14, bold: true };
-    worksheet.getCell("A2").alignment = { horizontal: "center" };
-
-    worksheet.getCell("A4").value = "Month";
-    worksheet.getCell("B4").value = month;
-    worksheet.getCell("D4").value = "Year";
-    worksheet.getCell("E4").value = year;
-    worksheet.getCell("G4").value = "Generated";
-    worksheet.getCell("H4").value = new Date().toLocaleString();
-
-    worksheet.columns = [
-      { header: "Employee Code", key: "employeeCode", width: 18 },
-      { header: "Labour Name", key: "labourName", width: 25 },
-      { header: "Mobile", key: "mobile", width: 18 },
-      { header: "Present", key: "presentDays", width: 12 },
-      { header: "Half Day", key: "halfDays", width: 12 },
-      { header: "Absent", key: "absentDays", width: 12 },
-      { header: "Leave", key: "leaveDays", width: 12 },
-      { header: "Holiday", key: "holidayDays", width: 12 },
-      { header: "Overtime", key: "overtimeAmount", width: 15 },
-      { header: "Payable", key: "payableAmount", width: 15 },
-      { header: "Advance", key: "advanceAmount", width: 15 },
-      { header: "Bonus", key: "bonusAmount", width: 15 },
-      { header: "Deduction", key: "deductionAmount", width: 15 },
-      { header: "Net Payable", key: "netPayable", width: 15 },
-      { header: "Paid", key: "paidAmount", width: 15 },
-      { header: "Balance", key: "balanceAmount", width: 15 },
-    ];
-
-    worksheet.spliceRows(5, 1);
-
-    worksheet.insertRow(6, [
-      "Employee Code",
-      "Labour Name",
-      "Mobile",
-      "Present",
-      "Half Day",
-      "Absent",
-      "Leave",
-      "Holiday",
-      "Overtime",
-      "Payable",
-      "Advance",
-      "Bonus",
-      "Deduction",
-      "Net Payable",
-      "Paid",
-      "Balance",
-    ]);
-
-    const headerRow = worksheet.getRow(6);
-    headerRow.font = { bold: true, color: { argb: "FFFFFF" } };
-    headerRow.alignment = { horizontal: "center", vertical: "middle" };
-    headerRow.fill = {
-      type: "pattern",
-      pattern: "solid",
-      fgColor: { argb: "1F4E78" },
-    };
-
-    let grandPayable = 0;
-    let grandAdvance = 0;
-    let grandBonus = 0;
-    let grandDeduction = 0;
-    let grandNetPayable = 0;
-    let grandPaid = 0;
-    let grandBalance = 0;
-
-    for (const labour of labours) {
-      const attendance = await Attendance.find({
-        companyId: req.user.companyId,
-        contractorId,
-        labourId: labour._id,
-        attendanceDate: { $gte: startDate, $lte: endDate },
-        isDeleted: false,
-      });
-
-      let presentDays = 0;
-      let halfDays = 0;
-      let absentDays = 0;
-      let leaveDays = 0;
-      let holidayDays = 0;
-      let overtimeAmount = 0;
-      let payableAmount = 0;
-
-      attendance.forEach((item) => {
-        if (item.status === "PRESENT") {
-          presentDays++;
-          payableAmount += item.wageAtThatDay;
-        }
-
-        if (item.status === "HALF_DAY") {
-          halfDays++;
-          payableAmount += item.wageAtThatDay / 2;
-        }
-
-        if (item.status === "ABSENT") absentDays++;
-        if (item.status === "LEAVE") leaveDays++;
-        if (item.status === "HOLIDAY") holidayDays++;
-
-        overtimeAmount += item.overtimeAmount || 0;
-      });
-
-      payableAmount += overtimeAmount;
-
-      const payments = await LabourPayment.find({
-        companyId: req.user.companyId,
-        contractorId,
-        labourId: labour._id,
-        month: Number(month),
-        year: Number(year),
-        isDeleted: false,
-      });
-
-      let advanceAmount = 0;
-      let bonusAmount = 0;
-      let deductionAmount = 0;
-      let paidAmount = 0;
-
-      payments.forEach((item) => {
-        if (item.paymentType === "ADVANCE") advanceAmount += item.amount;
-        if (item.paymentType === "BONUS") bonusAmount += item.amount;
-        if (item.paymentType === "DEDUCTION") deductionAmount += item.amount;
-        if (item.paymentType === "SALARY") paidAmount += item.amount;
-      });
-
-      const netPayable =
-        payableAmount + bonusAmount - advanceAmount - deductionAmount;
-
-      const balanceAmount = netPayable - paidAmount;
-
-      grandPayable += payableAmount;
-      grandAdvance += advanceAmount;
-      grandBonus += bonusAmount;
-      grandDeduction += deductionAmount;
-      grandNetPayable += netPayable;
-      grandPaid += paidAmount;
-      grandBalance += balanceAmount;
-
-      worksheet.addRow({
-        employeeCode: labour.employeeCode || "",
-        labourName: labour.name || "",
-        mobile: labour.mobile || "",
-        presentDays,
-        halfDays,
-        absentDays,
-        leaveDays,
-        holidayDays,
-        overtimeAmount,
-        payableAmount,
-        advanceAmount,
-        bonusAmount,
-        deductionAmount,
-        netPayable,
-        paidAmount,
-        balanceAmount,
-      });
-    }
-
-    const totalRow = worksheet.addRow({
-      employeeCode: "",
-      labourName: "Grand Total",
-      overtimeAmount: grandPayable,
-      payableAmount: grandPayable,
-      advanceAmount: grandAdvance,
-      bonusAmount: grandBonus,
-      deductionAmount: grandDeduction,
-      netPayable: grandNetPayable,
-      paidAmount: grandPaid,
-      balanceAmount: grandBalance,
-    });
-
-    totalRow.font = { bold: true };
-
-    worksheet.views = [{ state: "frozen", ySplit: 6 }];
-    worksheet.autoFilter = { from: "A6", to: "P6" };
-
-    const fileName = `Salary_${month}_${year}.xlsx`;
-
-    res.setHeader(
-      "Content-Type",
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    );
-
-    res.setHeader("Content-Disposition", `attachment; filename=${fileName}`);
-
-    await workbook.xlsx.write(res);
-    res.end();
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
+    const headers = ["SR. NO.", "Labour Code", "Labour Name", "Mobile", "Skill", "Month", "Year", "Present Days", "Half Days", "Absent Days", "Leave Days", "Holiday Days", "Weekly Off", "Payable Days", "Daily Wage", "Wage Basis", "Basic", "HRA", "Allowance", "Bonus", "Incentive", "Overtime Hours", "Overtime Rate", "Overtime", "Gross", "Employee PF", "Employee ESIC", "Advance", "Other Deduction", "Total Deduction", "Net Salary", "Employer PF", "Employer ESIC", "CTC", "Paid", "Balance", "Excess Paid", "Status"];
+    worksheet.addRow(headers);
+    const header = worksheet.getRow(1); header.height = 30; header.font = { bold: true, color: { argb: "FFFFFFFF" } }; header.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1F4E78" } }; header.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
+    salaries.forEach((salary, index) => { const a=salary.attendanceSummary || {}; worksheet.addRow([index+1, salary.labourId?.labourCode || "", salary.labourId?.name || "", salary.labourId?.mobile || "", salary.skillId?.skillName || "", salary.month, salary.year, a.presentDays||0, a.halfDays||0, a.absentDays||0, a.leaveDays||0, a.holidayDays||0, a.weeklyOffDays||0, a.payableDays||0, salary.dailyWage||0, salary.wageBasis, salary.basic??salary.basicSalary??0, salary.hra||0, salary.allowance??salary.otherAllowance??0, salary.bonus||0, salary.incentive||0, salary.overtimeHours||0, salary.overtimeRate||0, salary.overtime??salary.overtimeAmount??0, salary.grossSalary||0, salary.employeePF??salary.pfEmployee??0, salary.employeeESIC??salary.esicEmployee??0, salary.advance||0, salary.otherDeduction||0, salary.totalDeduction||0, salary.finalNetSalary??salary.netSalary??0, salary.employerPF??salary.pfEmployer??0, salary.employerESIC??salary.esicEmployer??0, salary.ctc||0, salary.paidAmount||0, salary.balanceAmount||0, salary.excessPaidAmount||0, salary.status]); });
+    worksheet.columns.forEach((column, index) => { column.width = index >= 1 && index <= 4 ? 20 : 14; });
+    worksheet.eachRow((row, rowNumber) => { if(rowNumber > 1) row.eachCell((cell, columnNumber) => { if(columnNumber !== 2 && columnNumber !== 3 && columnNumber !== 4 && columnNumber !== 5 && columnNumber !== 16 && columnNumber !== 38 && typeof cell.value === "number") cell.numFmt = "0.00"; }); });
+    worksheet.views = [{ state: "frozen", ySplit: 1 }]; worksheet.autoFilter = { from: "A1", to: "AL1" };
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"); res.setHeader("Content-Disposition", `attachment; filename=Salary_${yearNumber}_${String(monthNumber).padStart(2,"0")}_Filtered.xlsx`); await workbook.xlsx.write(res); res.end();
+  } catch (error) { console.error("Salary export error:", error); res.status(500).json({ success: false, message: "Internal server error" }); }
 };
-
+const exportFilteredReport = async (req, res) => {
+  try {
+    const { format } = req.params;
+    const { title = "LMS Report", fileName = "Report", columns = [], rows = [] } = req.body || {};
+    if (!["xlsx", "pdf"].includes(format)) return res.status(400).json({ success: false, message: "Invalid export format." });
+    if (!Array.isArray(columns) || !columns.length || columns.length > 30 || !Array.isArray(rows) || rows.length > 5000) return res.status(400).json({ success: false, message: "Invalid report export data." });
+    const safeColumns = columns.map((column, index) => ({ key: String(column.key || `column${index}`).slice(0, 60), label: String(column.label || column.key || `Column ${index + 1}`).slice(0, 80) }));
+    const safeRows = rows.map((row) => safeColumns.map((column) => { const value = row && typeof row === "object" ? row[column.key] : ""; return typeof value === "number" ? value : String(value ?? "").slice(0, 500); }));
+    const safeName = String(fileName).replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 80) || "Report";
+    if (format === "xlsx") {
+      const workbook = new ExcelJS.Workbook(); workbook.creator = "Kinetic LMS";
+      const worksheet = workbook.addWorksheet("Report"); worksheet.mergeCells(1, 1, 1, safeColumns.length);
+      const titleCell = worksheet.getCell(1, 1); titleCell.value = String(title).slice(0, 150); titleCell.font = { bold: true, size: 16, color: { argb: "FFFFFFFF" } }; titleCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF4338CA" } }; titleCell.alignment = { horizontal: "center", vertical: "middle" }; worksheet.getRow(1).height = 28;
+      worksheet.addRow(safeColumns.map((column) => column.label)); const header = worksheet.getRow(2); header.font = { bold: true, color: { argb: "FFFFFFFF" } }; header.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1E293B" } };
+      safeRows.forEach((row) => worksheet.addRow(row)); worksheet.columns.forEach((column) => { column.width = 18; }); worksheet.views = [{ state: "frozen", ySplit: 2 }];
+      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"); res.setHeader("Content-Disposition", `attachment; filename=${safeName}.xlsx`); await workbook.xlsx.write(res); return res.end();
+    }
+    const PDFDocument = require("pdfkit"); const doc = new PDFDocument({ size: "A3", layout: "landscape", margin: 28 });
+    res.setHeader("Content-Type", "application/pdf"); res.setHeader("Content-Disposition", `attachment; filename=${safeName}.pdf`); doc.pipe(res);
+    doc.fontSize(18).fillColor("#312e81").text(String(title).slice(0, 150)); doc.moveDown(0.3).fontSize(8).fillColor("#64748b").text(`Generated: ${new Date().toLocaleString("en-IN")} | Records: ${safeRows.length}`); doc.moveDown(0.7);
+    const pageWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right, cellWidth = pageWidth / safeColumns.length, rowHeight = 22;
+    const drawRow = (values, header = false) => { if (doc.y + rowHeight > doc.page.height - doc.page.margins.bottom) doc.addPage(); const y = doc.y; values.forEach((value, index) => { const x = doc.page.margins.left + index * cellWidth; doc.rect(x, y, cellWidth, rowHeight).fillAndStroke(header ? "#1e293b" : "#ffffff", "#cbd5e1"); doc.fillColor(header ? "#ffffff" : "#334155").font(header ? "Helvetica-Bold" : "Helvetica").fontSize(7).text(String(value), x + 3, y + 6, { width: cellWidth - 6, height: rowHeight - 8, ellipsis: true }); }); doc.y = y + rowHeight; };
+    drawRow(safeColumns.map((column) => column.label), true); safeRows.forEach((row) => drawRow(row)); doc.end();
+  } catch (error) { console.error("Filtered report export error:", error); if (!res.headersSent) res.status(500).json({ success: false, message: "Report export failed." }); }
+};
 
 module.exports = {
   exportLabours,
   exportMonthlyAttendance,
-  exportSalaryReport
+  exportSalaryReport,
+  exportFilteredReport
 };
+

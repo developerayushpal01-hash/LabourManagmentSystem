@@ -1,4 +1,4 @@
-const mongoose = require("mongoose");
+﻿const mongoose = require("mongoose");
 
 const labourSchema = new mongoose.Schema(
   {
@@ -67,6 +67,12 @@ const labourSchema = new mongoose.Schema(
       default: null,
     },
 
+    overtimeRate: { type: Number, default: null, min: 0 },
+    isPFApplicable: { type: Boolean, default: false },
+    pfUanNumber: { type: String, trim: true, default: null, match: [/^\d{12}$/, "PF UAN number must contain exactly 12 digits"] },
+    isESICApplicable: { type: Boolean, default: false },
+    esicIpNumber: { type: String, trim: true, default: null, match: [/^\d{10}$/, "ESIC IP number must contain exactly 10 digits"] },
+
     status: {
       type: String,
       enum: ["ACTIVE", "INACTIVE", "BLOCKED"],
@@ -81,4 +87,9 @@ const labourSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+labourSchema.index({ companyId: 1, contractorId: 1, pfUanNumber: 1 }, { unique: true, partialFilterExpression: { pfUanNumber: { $type: "string" } } });
+labourSchema.index({ companyId: 1, contractorId: 1, esicIpNumber: 1 }, { unique: true, partialFilterExpression: { esicIpNumber: { $type: "string" } } });
+
 module.exports = mongoose.model("Labour", labourSchema);
+
+

@@ -11,7 +11,8 @@ import { apiUrl } from "@/lib/api"
 type Status = "PRESENT" | "ABSENT" | "HALF_DAY" | "LEAVE" | "HOLIDAY"
 type Site = { _id: string; siteName: string; siteCode?: string; status: string }
 type Labour = { _id: string; labourCode: string; name: string; mobile: string; status: string; skillId: { skillName: string } | null; site: Site | null }
-type Entry = { _id: string; labourId: string | { _id: string }; attendanceDate: string; status: Status }
+type Entry = { _id: string; labourId: string | { _id: string } | null; attendanceDate: string; status: Status; overtimeHours?: number; overtimeAmount?: number | null }
+type OtDraft = { hours: string }
 type Api<T> = { success: boolean; data?: T; message?: string }
 
 const options: { status: Status; label: string; short: string; active: string; idle: string }[] = [
@@ -22,7 +23,7 @@ const options: { status: Status; label: string; short: string; active: string; i
   { status: "HOLIDAY", label: "Paid Holiday", short: "PH", active: "border-violet-600 bg-violet-600 text-white", idle: "border-violet-200 bg-violet-50 text-violet-700" },
 ]
 const localDate = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`
-const labourIdOf = (entry: Entry) => typeof entry.labourId === "string" ? entry.labourId : entry.labourId._id
+const labourIdOf = (entry: Entry) => typeof entry.labourId === "string" ? entry.labourId : entry.labourId?._id || ""
 
 export default function MarkAttendancePage() {
   const router = useRouter()
@@ -32,6 +33,7 @@ export default function MarkAttendancePage() {
   const [sites, setSites] = useState<Site[]>([])
   const [entries, setEntries] = useState<Entry[]>([])
   const [draft, setDraft] = useState<Record<string, Status>>({})
+  const [otDraft, setOtDraft] = useState<Record<string, OtDraft>>({})
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [siteId, setSiteId] = useState("")
   const [query, setQuery] = useState("")
@@ -113,9 +115,10 @@ export default function MarkAttendancePage() {
     }
     const labourById = new Map(labours.map((labour) => [labour._id, labour]))
     const existingByLabour = new Map(entries.map((entry) => [labourIdOf(entry), entry]))
-    const changes = Object.keys(draft).filter((labourId) => {
+    const changes = [...new Set([...Object.keys(draft), ...Object.keys(otDraft)])].filter((labourId) => {
       const existing = existingByLabour.get(labourId)
-      return existing?.status !== draft[labourId]
+      const overtime = otDraft[labourId]
+      return Boolean(draft[labourId]) && (existing?.status !== draft[labourId] || Number(overtime?.hours || 0) !== Number(existing?.overtimeHours || 0))
     })
     if (!changes.length) { showToast("No attendance changes to submit.", "info"); return }
     const missingSite = changes.find((labourId) => draft[labourId] && !labourById.get(labourId)?.site?._id)
@@ -127,6 +130,7 @@ export default function MarkAttendancePage() {
         const labour = labourById.get(labourId)!
         const existing = existingByLabour.get(labourId)
         const status = draft[labourId]
+        const overtime = otDraft[labourId] || { hours: "" }
 
         if (!status && existing) {
           const response = await fetch(apiUrl(`/attendance/delete/${existing._id}`), {
@@ -140,7 +144,7 @@ export default function MarkAttendancePage() {
 
         const response = await fetch(apiUrl(existing ? `/attendance/update/${existing._id}` : "/attendance/mark"), {
           method: existing ? "PUT" : "POST", credentials: "include", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(existing ? { status } : { labourId, siteId: labour.site!._id, attendanceDate: date, status, remarks: status === "HOLIDAY" ? "Paid holiday" : "" }),
+          body: JSON.stringify(existing ? { status, overtimeHours: Number(overtime.hours || 0), overtimeAmount: null } : { labourId, siteId: labour.site!._id, attendanceDate: date, status, overtimeHours: Number(overtime.hours || 0), overtimeAmount: null, remarks: status === "HOLIDAY" ? "Paid holiday" : "" }),
         })
         const result = await response.json() as Api<Entry>
         if (!response.ok || !result.success || !result.data) throw new Error(result.message || `${labour.name}: attendance save failed.`)
@@ -162,6 +166,7 @@ export default function MarkAttendancePage() {
       })
       setSelected(new Set())
       setDraft({})
+      setOtDraft({})
       setSiteId("")
       setQuery("")
       showToast(`${results.length} attendance changes submitted successfully.`, "success")
@@ -190,7 +195,7 @@ export default function MarkAttendancePage() {
           <div className="flex flex-wrap gap-2"><button onClick={() => bulkSet("PRESENT")} className="h-10 rounded-md bg-emerald-600 px-3 text-xs font-bold text-white">Mark All Present</button><button onClick={() => bulkSet("ABSENT")} className="h-10 rounded-md bg-red-50 px-3 text-xs font-bold text-red-600">Mark All Absent</button><button onClick={() => bulkSet("HOLIDAY")} className="h-10 rounded-md bg-violet-50 px-3 text-xs font-bold text-violet-700">Paid Holiday</button></div>
         </div>
 
-        <div className="overflow-x-auto"><table className="w-full min-w-[900px] text-left"><thead className="bg-slate-50 text-[9px] uppercase tracking-wider text-slate-500"><tr><th className="w-12 px-4 py-3"><input type="checkbox" checked={visible.length > 0 && selected.size === visible.length} onChange={toggleAll} /></th><th className="px-4 py-3">Labour Information</th><th className="px-4 py-3">Site &amp; Role</th><th className="px-4 py-3">Attendance Status</th></tr></thead><tbody className="divide-y divide-slate-100">{visible.map((labour) => <tr key={labour._id} className="hover:bg-slate-50"><td className="px-4 py-4"><input type="checkbox" checked={selected.has(labour._id)} onChange={() => setSelected((current) => { const next = new Set(current); if (next.has(labour._id)) next.delete(labour._id); else next.add(labour._id); return next })} /></td><td className="px-4 py-4"><strong className="block text-xs text-slate-900">{labour.name}</strong><span className="text-[9px] text-slate-400">{labour.labourCode} - {labour.mobile}</span></td><td className="px-4 py-4"><strong className="block text-xs text-slate-700">{labour.site?.siteName || "Not assigned"}</strong><span className="text-[9px] font-medium text-indigo-600">{labour.skillId?.skillName || "No skill"}</span></td><td className="px-4 py-4"><div className="flex flex-wrap gap-2">{options.map((option) => <button key={option.status} onClick={() => toggleStatus(labour._id, option.status)} className={`min-w-20 rounded-md border px-3 py-2 text-[9px] font-bold transition ${draft[labour._id] === option.status ? option.active : option.idle}`}><span className="mr-1">{option.short}</span>{option.label}</button>)}</div></td></tr>)}</tbody></table></div>
+        <div className="overflow-x-auto"><table className="w-full min-w-[900px] text-left"><thead className="bg-slate-50 text-[9px] uppercase tracking-wider text-slate-500"><tr><th className="w-12 px-4 py-3"><input type="checkbox" checked={visible.length > 0 && selected.size === visible.length} onChange={toggleAll} /></th><th className="px-4 py-3">Labour Information</th><th className="px-4 py-3">Site &amp; Role</th><th className="px-4 py-3">Attendance Status</th><th className="min-w-32 px-4 py-3 text-center">OT Hours</th></tr></thead><tbody className="divide-y divide-slate-100">{visible.map((labour) => <tr key={labour._id} className="hover:bg-slate-50"><td className="px-4 py-4"><input type="checkbox" checked={selected.has(labour._id)} onChange={() => setSelected((current) => { const next = new Set(current); if (next.has(labour._id)) next.delete(labour._id); else next.add(labour._id); return next })} /></td><td className="px-4 py-4"><strong className="block text-xs text-slate-900">{labour.name}</strong><span className="text-[9px] text-slate-400">{labour.labourCode} - {labour.mobile}</span></td><td className="px-4 py-4"><strong className="block text-xs text-slate-700">{labour.site?.siteName || "Not assigned"}</strong><span className="text-[9px] font-medium text-indigo-600">{labour.skillId?.skillName || "No skill"}</span></td><td className="px-4 py-4"><div className="flex flex-wrap gap-2">{options.map((option) => <button key={option.status} onClick={() => toggleStatus(labour._id, option.status)} className={`min-w-20 rounded-md border px-3 py-2 text-[9px] font-bold transition ${draft[labour._id] === option.status ? option.active : option.idle}`}><span className="mr-1">{option.short}</span>{option.label}</button>)}</div></td><td className="px-4 py-4 text-center"><input aria-label={`${labour.name} OT hours`} type="number" min="0" step="0.5" value={otDraft[labour._id]?.hours || ""} onChange={(event) => { setOtDraft((current) => ({ ...current, [labour._id]: { hours: event.target.value } })); setDraft((current) => current[labour._id] ? current : { ...current, [labour._id]: "PRESENT" }) }} placeholder="0" className="h-9 w-24 rounded-md border border-cyan-200 px-2 text-center text-xs text-cyan-700 outline-none focus:border-cyan-500" /></td></tr>)}</tbody></table></div>
         {loading && <div className="p-12 text-center text-sm text-slate-500">Loading site labours and attendance...</div>}
         {!loading && !visible.length && <div className="p-12 text-center text-sm text-slate-500">No pending labours found. Attendance is already marked for this date or no active labour matches the filters.</div>}
         <div className="border-t border-slate-200 bg-slate-50 px-4 py-3 text-[10px] text-slate-500">Showing {visible.length} pending labours. Workers disappear after attendance is submitted and return automatically on the next date.</div>

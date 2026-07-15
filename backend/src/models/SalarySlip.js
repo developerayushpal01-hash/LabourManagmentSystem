@@ -1,55 +1,13 @@
 const mongoose = require("mongoose");
-
-const salarySlipSchema = new mongoose.Schema(
-  {
-    companyId: { type: mongoose.Schema.Types.ObjectId, ref: "Company", required: true },
-    contractorId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
-    labourId: { type: mongoose.Schema.Types.ObjectId, ref: "Labour", required: true },
-
-    month: { type: Number, required: true },
-    year: { type: Number, required: true },
-
-    basicSalary: { type: Number, default: 0 },
-    hra: { type: Number, default: 0 },
-    otherAllowance: { type: Number, default: 0 },
-    bonus: { type: Number, default: 0 },
-    incentive: { type: Number, default: 0 },
-    overtimeAmount: { type: Number, default: 0 },
-    grossSalary: { type: Number, default: 0 },
-
-    pfEmployee: { type: Number, default: 0 },
-    esicEmployee: { type: Number, default: 0 },
-    advance: { type: Number, default: 0 },
-    otherDeduction: { type: Number, default: 0 },
-    netSalary: { type: Number, default: 0 },
-
-    pfEmployer: { type: Number, default: 0 },
-    esicEmployer: { type: Number, default: 0 },
-    ctc: { type: Number, default: 0 },
-
-    paidAmount: { type: Number, default: 0 },
-    balanceAmount: { type: Number, default: 0 },
-
-    status: {
-      type: String,
-      enum: ["PENDING", "PARTIAL", "PAID"],
-      default: "PENDING",
-    },
-
-    generatedBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-      required: true,
-    },
-
-    isDeleted: { type: Boolean, default: false },
-  },
-  { timestamps: true }
-);
-
-salarySlipSchema.index(
-  { labourId: 1, month: 1, year: 1, isDeleted: 1 },
-  { unique: true }
-);
-
+const deductionSchema = new mongoose.Schema({ title: { type: String, required: true, trim: true }, amount: { type: Number, default: 0, min: 0 }, remarks: { type: String, trim: true, default: "" } }, { _id: false });
+const summarySchema = new mongoose.Schema({ presentDays: { type: Number, default: 0 }, halfDays: { type: Number, default: 0 }, absentDays: { type: Number, default: 0 }, leaveDays: { type: Number, default: 0 }, holidayDays: { type: Number, default: 0 }, weeklyOffDays: { type: Number, default: 0 }, paidLeaveDays: { type: Number, default: 0 }, paidHolidayDays: { type: Number, default: 0 }, paidWeeklyOffDays: { type: Number, default: 0 }, payableDays: { type: Number, default: 0 } }, { _id: false });
+const salarySlipSchema = new mongoose.Schema({
+  companyId: { type: mongoose.Schema.Types.ObjectId, ref: "Company", required: true, index: true }, contractorId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true }, labourId: { type: mongoose.Schema.Types.ObjectId, ref: "Labour", required: true, index: true }, skillId: { type: mongoose.Schema.Types.ObjectId, ref: "Skill", default: null }, month: { type: Number, min: 1, max: 12, required: true }, year: { type: Number, required: true }, salaryCycleDays: { type: Number, default: 30 },
+  dailyWage: { type: Number, default: 0, min: 0 }, wageBasis: { type: String, enum: ["CUSTOM", "SKILL_BASED"], default: "SKILL_BASED" }, attendanceSummary: { type: summarySchema, default: () => ({}) }, attendanceEarnings: { type: Number, default: 0 },
+  basic: { type: Number, default: 0 }, basicSalary: { type: Number, default: 0 }, hra: { type: Number, default: 0 }, allowance: { type: Number, default: 0 }, otherAllowance: { type: Number, default: 0 }, bonus: { type: Number, default: 0 }, incentive: { type: Number, default: 0 }, overtimeHours: { type: Number, default: 0 }, overtimeRate: { type: Number, default: 0 }, overtime: { type: Number, default: 0 }, overtimeAmount: { type: Number, default: 0 }, grossSalary: { type: Number, default: 0 },
+  pfWage: { type: Number, default: 0 }, employeePF: { type: Number, default: 0 }, pfEmployee: { type: Number, default: 0 }, esicWage: { type: Number, default: 0 }, employeeESIC: { type: Number, default: 0 }, esicEmployee: { type: Number, default: 0 }, advance: { type: Number, default: 0 }, advancePaymentIds: [{ type: mongoose.Schema.Types.ObjectId, ref: "LabourPayment" }], otherDeductions: { type: [deductionSchema], default: [] }, otherDeduction: { type: Number, default: 0 }, totalDeduction: { type: Number, default: 0 }, netSalary: { type: Number, default: 0 }, roundOffAmount: { type: Number, default: 0 }, finalNetSalary: { type: Number, default: 0 },
+  employerPF: { type: Number, default: 0 }, pfEmployer: { type: Number, default: 0 }, employerESIC: { type: Number, default: 0 }, esicEmployer: { type: Number, default: 0 }, ctc: { type: Number, default: 0 }, paidAmount: { type: Number, default: 0 }, balanceAmount: { type: Number, default: 0 }, excessPaidAmount: { type: Number, default: 0 },
+  status: { type: String, enum: ["DRAFT", "UNPAID", "PARTIALLY_PAID", "PAID", "OVERPAID", "CANCELLED", "PENDING", "PARTIAL"], default: "DRAFT" }, isFinalized: { type: Boolean, default: false }, finalizedAt: { type: Date, default: null }, finalizedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null }, calculatedAt: { type: Date, default: Date.now }, generatedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true }, createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null }, isDeleted: { type: Boolean, default: false },
+}, { timestamps: true });
+salarySlipSchema.index({ companyId: 1, contractorId: 1, labourId: 1, month: 1, year: 1 }, { unique: true, partialFilterExpression: { isDeleted: false } });
 module.exports = mongoose.model("SalarySlip", salarySlipSchema);

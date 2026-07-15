@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { FormEvent, useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
@@ -31,6 +31,10 @@ type Labour = {
   dob?: string | null
   dailyWage?: number | null
   finalDailyWage: number
+  isPFApplicable?: boolean
+  pfUanNumber?: string | null
+  isESICApplicable?: boolean
+  esicIpNumber?: string | null
   status: "ACTIVE" | "INACTIVE" | "BLOCKED"
   skillId: Skill | null
   site: Site | null
@@ -464,9 +468,9 @@ const LaboursPage = () => {
             </div>
 
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[1050px] text-left">
+              <table className="w-full min-w-[1350px] text-left">
                 <thead className="bg-slate-50 text-[11px] uppercase text-slate-500">
-                  <tr><th className="px-5 py-3">#</th><th className="px-5 py-3">Labour Code</th><th className="px-5 py-3">Name</th><th className="px-5 py-3">Site</th><th className="px-5 py-3">Mobile</th><th className="px-5 py-3">Status</th><th className="px-5 py-3">Daily Wage</th><th className="px-5 py-3 text-right">Action</th></tr>
+                  <tr><th className="px-5 py-3">#</th><th className="px-5 py-3">Labour Code</th><th className="px-5 py-3">Name</th><th className="px-5 py-3">Site</th><th className="px-5 py-3">Mobile</th><th className="px-5 py-3">Status</th><th className="px-5 py-3">Daily Wage</th><th className="px-5 py-3">PF / UAN</th><th className="px-5 py-3">ESIC / IP</th><th className="px-5 py-3 text-right">Action</th></tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {visibleLabours.map((labour, index) => (
@@ -477,7 +481,7 @@ const LaboursPage = () => {
                       <td className="px-5 py-4"><p className="text-xs font-medium text-slate-700">{labour.site?.siteName ?? "Site not assigned"}</p><p className="mt-1 text-xs text-slate-400">{labour.site?.siteCode ?? ""}</p></td>
                       <td className="px-5 py-4 text-xs text-slate-700">{labour.mobile}</td>
                       <td className="px-5 py-4"><span className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${labour.status === "ACTIVE" ? "bg-emerald-100 text-emerald-700" : labour.status === "INACTIVE" ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700"}`}>{labour.status}</span></td>
-                      <td className="px-5 py-4 font-semibold text-slate-800">{money.format(labour.finalDailyWage || 0)}</td>
+                      <td className="px-5 py-4 font-semibold text-slate-800">{money.format(labour.finalDailyWage || 0)}</td><td className="px-5 py-4 text-xs font-semibold text-indigo-700">{labour.pfUanNumber || "-"}</td><td className="px-5 py-4 text-xs font-semibold text-sky-700">{labour.esicIpNumber || "-"}</td>
                       <td className="px-5 py-4"><div className="flex items-center justify-end gap-1">
                         <button type="button" aria-label="View labour" title="View labour" onClick={() => openView(labour)} className="flex h-9 w-9 items-center justify-center rounded text-indigo-600 hover:bg-indigo-50"><svg aria-hidden="true" className="h-5 w-5" viewBox="0 0 24 24" fill="none"><path d="M2.5 12s3.5-5 9.5-5 9.5 5 9.5 5-3.5 5-9.5 5-9.5-5-9.5-5Z" stroke="currentColor" strokeWidth="1.8"/><circle cx="12" cy="12" r="2.5" stroke="currentColor" strokeWidth="1.8"/></svg></button>
                         <button type="button" aria-label="Edit labour" title="Edit labour" onClick={() => openEdit(labour)} className="flex h-9 w-9 items-center justify-center rounded text-slate-600 hover:bg-slate-100"><svg aria-hidden="true" className="h-5 w-5" viewBox="0 0 24 24" fill="none"><path d="M14.5 5.5l4 4M4 20l3.8-.8L19 8a1.8 1.8 0 000-2.5l-.5-.5A1.8 1.8 0 0016 5L4.8 16.2 4 20Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg></button>
@@ -610,7 +614,7 @@ const LaboursPage = () => {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <button type="button" onClick={() => { const labour = selectedLabour; setSelectedLabour(null); openEdit(labour) }} className="h-9 rounded-md border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50">✎ Edit Profile</button>
+                <button type="button" onClick={() => { const labour = selectedLabour; setSelectedLabour(null); openEdit(labour) }} className="h-9 rounded-md border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50">âœŽ Edit Profile</button>
                 <button type="button" aria-label="Close labour details" onClick={() => setSelectedLabour(null)} className="flex h-9 w-9 items-center justify-center rounded-md border border-slate-300 text-xl text-slate-500 hover:bg-slate-100">&times;</button>
               </div>
             </header>
@@ -643,7 +647,7 @@ const LaboursPage = () => {
                 <div className="mt-5 grid gap-5 sm:grid-cols-2">
                   <div>
                     <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">Contact Details</p>
-                    <p className="mt-3 text-xs font-semibold text-slate-800">☎ &nbsp;{selectedLabour.mobile}</p>
+                    <p className="mt-3 text-xs font-semibold text-slate-800">â˜Ž &nbsp;{selectedLabour.mobile}</p>
                     <p className="mt-2 text-xs text-slate-500">Gender: <span className="font-medium text-slate-700">{selectedLabour.gender}</span></p>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
@@ -718,3 +722,6 @@ const LaboursPage = () => {
 }
 
 export default LaboursPage
+
+
+

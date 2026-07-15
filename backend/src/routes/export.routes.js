@@ -1,4 +1,4 @@
-const express = require("express");
+﻿const express = require("express");
 const router = express.Router();
 
 
@@ -6,6 +6,7 @@ const {
   exportLabours,
   exportMonthlyAttendance,
   exportSalaryReport,
+  exportFilteredReport,
 } = require("../controllers/exportController");
 
 const { verifyToken } = require("../middlewares/auth.middleware");
@@ -32,4 +33,7 @@ router.get(
   exportSalaryReport
 );
 
+
+router.post("/report/:format", verifyToken, authorizeRoles("CONTRACTOR", "SUPERVISOR", "ACCOUNTANT"), exportFilteredReport);
 module.exports = router;
+

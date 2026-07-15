@@ -1,6 +1,7 @@
-const Attendance = require("../models/Attendance");
+﻿const Attendance = require("../models/Attendance");
 const Labour = require("../models/Labour");
 const LabourPayment = require("../models/LabourPayment");
+const LabourSite = require("../models/LabourSite");
 
 const getContractorId = (user) => {
   return user.role === "CONTRACTOR" ? user._id : user.parentUserId;
@@ -313,10 +314,25 @@ const paymentReport = async (req, res) => {
       month: Number(month),
       year: Number(year),
       isDeleted: false,
-    })
-      .populate("labourId", "name mobile")
-      .populate("createdBy", "name role")
-      .sort({ paymentDate: -1 });
+    }).populate("createdBy", "name role").sort({ paymentDate: -1 });
+
+    const labourIds = payments.map((item) => item.labourId).filter(Boolean);
+    const [paymentLabours, assignments] = await Promise.all([
+      Labour.find({ _id: { $in: labourIds }, companyId: req.user.companyId, contractorId }).select("labourCode name mobile status isDeleted").lean(),
+      LabourSite.find({ companyId: req.user.companyId, contractorId, labourId: { $in: labourIds }, isDeleted: false }).sort({ createdAt: -1 }).populate("siteId", "siteName siteCode").lean(),
+    ]);
+    const labourById = new Map(paymentLabours.map((item) => [item._id.toString(), item]));
+    const siteByLabour = new Map();
+    assignments.forEach((item) => { const key = item.labourId.toString(); if (!siteByLabour.has(key) || item.status === "ACTIVE") siteByLabour.set(key, item.siteId); });
+    const reportData = payments.map((item) => {
+      const data = item.toObject();
+      const rawId = item.labourId?.toString() || "";
+      const labour = labourById.get(rawId);
+      data.labourId = labour
+        ? { ...labour, site: siteByLabour.get(rawId) || null }
+        : { _id: rawId, labourCode: item.labourCodeSnapshot || `REF-${rawId.slice(-6).toUpperCase()}`, name: item.labourNameSnapshot || "Deleted Labour", mobile: "", status: "DELETED", site: siteByLabour.get(rawId) || null };
+      return data;
+    });
 
     const summary = {
       salary: 0,
@@ -338,7 +354,7 @@ const paymentReport = async (req, res) => {
       year: Number(year),
       summary,
       count: payments.length,
-      data: payments,
+      data: reportData,
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -352,3 +368,4 @@ module.exports = {
   siteWiseReport,
   paymentReport,
 };
+

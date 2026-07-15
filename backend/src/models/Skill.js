@@ -36,6 +36,13 @@ const skillSchema = new mongoose.Schema(
       default: 0,
     },
 
+    overtimeRate: {
+      type: Number,
+      default: null,
+      min: 0,
+    },
+
+
     status: {
       type: String,
       enum: ["ACTIVE", "INACTIVE"],

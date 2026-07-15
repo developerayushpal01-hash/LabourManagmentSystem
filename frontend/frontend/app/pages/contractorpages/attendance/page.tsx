@@ -1,6 +1,6 @@
-"use client"
+﻿"use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react"
 import Navbar from "@/app/components/navbar"
 import Sidebar from "@/app/components/sidebar"
 import { useToast } from "@/app/components/toast-provider"
@@ -8,8 +8,8 @@ import { apiUrl } from "@/lib/api"
 
 type Status = "PRESENT" | "ABSENT" | "HALF_DAY" | "LEAVE" | "HOLIDAY"
 type Site = { _id: string; siteName: string; siteCode?: string }
-type Labour = { _id: string; labourCode: string; name: string; mobile: string; status: string; site: Site | null }
-type Entry = { _id: string; labourId: string | { _id: string; name?: string }; attendanceDate: string; status: Status }
+type Labour = { _id: string; labourCode: string; name: string; mobile: string; status: string; isPFApplicable?: boolean; pfUanNumber?: string | null; isESICApplicable?: boolean; esicIpNumber?: string | null; site: Site | null }
+type Entry = { _id: string; labourId: string | { _id: string; name?: string } | null; attendanceDate: string; status: Status; overtimeHours?: number; overtimeAmount?: number | null }
 type Api<T> = { success: boolean; data?: T; message?: string }
 
 const statusMeta: Record<Status, { short: string; label: string; className: string }> = {
@@ -21,7 +21,7 @@ const statusMeta: Record<Status, { short: string; label: string; className: stri
 }
 const statuses: Status[] = ["PRESENT", "ABSENT", "HALF_DAY", "LEAVE", "HOLIDAY"]
 const pad = (value: number) => String(value).padStart(2, "0")
-const labourIdOf = (entry: Entry) => typeof entry.labourId === "string" ? entry.labourId : entry.labourId._id
+const labourIdOf = (entry: Entry) => typeof entry.labourId === "string" ? entry.labourId : entry.labourId?._id || ""
 const dateKey = (value: string) => value.slice(0, 10)
 
 export default function AttendancePage() {
@@ -67,7 +67,7 @@ export default function AttendancePage() {
 
   const days = new Date(year, month, 0).getDate()
   const dayList = useMemo(() => Array.from({ length: days }, (_, index) => index + 1), [days])
-  const entryMap = useMemo(() => new Map(entries.map((entry) => [`${labourIdOf(entry)}-${dateKey(entry.attendanceDate)}`, entry])), [entries])
+  const entryMap = useMemo(() => new Map(entries.filter((entry) => labourIdOf(entry)).map((entry) => [`${labourIdOf(entry)}-${dateKey(entry.attendanceDate)}`, entry])), [entries])
   const visibleLabours = useMemo(() => {
     const text = query.trim().toLowerCase()
     return labours.filter((labour) => {
@@ -84,6 +84,7 @@ export default function AttendancePage() {
     return count
   }, [entries, visibleLabours])
   const marked = Object.values(totals).reduce((sum, value) => sum + value, 0)
+  const totalOvertimeHours = entries.reduce((sum, entry) => sum + Number(entry.overtimeHours || 0), 0)
   const presentRate = marked ? Math.round(((totals.PRESENT + totals.HALF_DAY * 0.5 + totals.HOLIDAY) / marked) * 1000) / 10 : 0
 
   const saveStatus = async (labour: Labour, day: number, status: Status) => {
@@ -107,6 +108,18 @@ export default function AttendancePage() {
     } finally { setSavingKey("") }
   }
 
+  const saveOvertime = async (entry: Entry, rawValue: string) => {
+    const value = Number(rawValue || 0)
+    if (value !== null && (!Number.isFinite(value) || value < 0)) { showToast("OT value cannot be negative.", "error"); return }
+    setSavingKey(`ot-${entry._id}`)
+    try {
+      const response = await fetch(apiUrl(`/attendance/update/${entry._id}`), { method: "PUT", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ overtimeHours: value, overtimeAmount: null }) })
+      const result = await response.json() as Api<Entry>
+      if (!response.ok || !result.success || !result.data) throw new Error(result.message || "Overtime could not be saved.")
+      setEntries((current) => current.map((item) => item._id === entry._id ? { ...result.data!, labourId: labourIdOf(item) } : item))
+      showToast("Overtime updated.", "success")
+    } catch (error) { showToast(error instanceof Error ? error.message : "Overtime could not be saved.", "error") } finally { setSavingKey("") }
+  }
   const exportAttendance = async () => {
     setExporting(true)
     try {
@@ -131,8 +144,8 @@ export default function AttendancePage() {
     <main className="min-h-0 flex-1 overflow-y-auto p-5 lg:p-7">
       <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"><div><p className="text-xs text-slate-500">Dashboard / <span className="font-semibold text-indigo-600">Attendance History</span></p><h1 className="mt-2 text-2xl font-bold text-slate-950">Contractor Attendance History</h1><p className="mt-1 text-sm text-slate-500">Monthly attendance, paid holidays and workforce totals for every labour.</p></div><button onClick={exportAttendance} disabled={exporting} className="h-10 rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 disabled:opacity-50">{exporting ? "Exporting..." : "Export Excel"}</button></header>
 
-      <section className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        {[["Present Rate", `${presentRate}%`, "text-emerald-600"], ["Total Present", totals.PRESENT, "text-emerald-600"], ["Total Absent", totals.ABSENT, "text-red-600"], ["Total Half Day", totals.HALF_DAY, "text-amber-600"], ["Paid Holidays", totals.HOLIDAY, "text-violet-600"]].map(([label, value, color]) => <div key={String(label)} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm"><p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{label}</p><strong className={`mt-2 block text-2xl ${color}`}>{value}</strong></div>)}
+      <section className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
+        {[["Present Rate", `${presentRate}%`, "text-emerald-600"], ["Total Present", totals.PRESENT, "text-emerald-600"], ["Total Absent", totals.ABSENT, "text-red-600"], ["Total Half Day", totals.HALF_DAY, "text-amber-600"], ["Paid Holidays", totals.HOLIDAY, "text-violet-600"], ["OT Hours", totalOvertimeHours, "text-cyan-600"]].map(([label, value, color]) => <div key={String(label)} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm"><p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{label}</p><strong className={`mt-2 block text-2xl ${color}`}>{value}</strong></div>)}
       </section>
 
       <section className="mt-5 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
@@ -145,20 +158,40 @@ export default function AttendancePage() {
 
         <div className="overflow-x-auto">
           <table className="min-w-max border-collapse text-left">
-            <thead className="bg-slate-50 text-[9px] uppercase text-slate-500"><tr><th className="sticky left-0 z-20 min-w-48 border-b border-r border-slate-200 bg-slate-50 px-4 py-3">Worker Name</th>{dayList.map((day) => { const isSunday = new Date(year, month - 1, day).getDay() === 0; return <th key={day} className={`h-12 w-11 border-b border-r border-slate-200 text-center ${isSunday ? "bg-rose-100 text-rose-700" : ""}`}>{day}<span className={`block text-[7px] font-semibold ${isSunday ? "text-rose-600" : "text-slate-400"}`}>{new Date(year, month - 1, day).toLocaleDateString("en-US", { weekday: "short" })}</span></th> })}<th className="border-b border-l border-slate-200 px-3 text-center">Days</th><th className="border-b border-l border-slate-200 px-3 text-center text-emerald-600 whitespace-nowrap">Present</th><th className="border-b border-l border-slate-200 px-3 text-center text-red-600 whitespace-nowrap">Absent</th><th className="border-b border-l border-slate-200 px-3 text-center text-amber-600 whitespace-nowrap">Half Day</th><th className="border-b border-l border-slate-200 px-3 text-center text-sky-600 whitespace-nowrap">Leave</th><th className="border-b border-l border-slate-200 px-3 text-center text-violet-600 whitespace-nowrap">Paid Holiday</th></tr></thead>
-            <tbody className="divide-y divide-slate-100">{visibleLabours.map((labour) => {
+            <thead className="bg-slate-50 text-[9px] uppercase text-slate-500"><tr><th className="sticky left-0 z-20 min-w-48 border-b border-r border-slate-200 bg-slate-50 px-4 py-3">Worker Name</th><th className="sticky left-48 z-20 min-w-24 border-b border-r border-slate-200 bg-slate-50 px-3 py-3 text-center">Type</th>{dayList.map((day) => { const isSunday = new Date(year, month - 1, day).getDay() === 0; return <th key={day} className={`h-12 w-11 border-b border-r border-slate-200 text-center ${isSunday ? "bg-rose-100 text-rose-700" : ""}`}>{day}<span className={`block text-[7px] font-semibold ${isSunday ? "text-rose-600" : "text-slate-400"}`}>{new Date(year, month - 1, day).toLocaleDateString("en-US", { weekday: "short" })}</span></th> })}<th className="border-b border-l border-slate-200 px-3 text-center">Days</th><th className="border-b border-l border-slate-200 px-3 text-center text-emerald-600 whitespace-nowrap">Present</th><th className="border-b border-l border-slate-200 px-3 text-center text-red-600 whitespace-nowrap">Absent</th><th className="border-b border-l border-slate-200 px-3 text-center text-amber-600 whitespace-nowrap">Half Day</th><th className="border-b border-l border-slate-200 px-3 text-center text-sky-600 whitespace-nowrap">Leave</th><th className="border-b border-l border-slate-200 px-3 text-center text-violet-600 whitespace-nowrap">Paid Holiday</th><th className="border-b border-l border-slate-200 px-3 text-center text-cyan-600 whitespace-nowrap">OT Hours</th><th className="border-b border-l border-slate-200 px-3 text-center text-indigo-600 whitespace-nowrap">PF / UAN</th><th className="border-b border-l border-slate-200 px-3 text-center text-sky-600 whitespace-nowrap">ESIC / IP</th></tr></thead>
+            <tbody>{visibleLabours.map((labour) => {
               const rowEntries = entries.filter((entry) => labourIdOf(entry) === labour._id)
               const row = (status: Status) => rowEntries.filter((entry) => entry.status === status).length
-              return <tr key={labour._id} className="hover:bg-slate-50"><td className="sticky left-0 z-10 border-r border-slate-200 bg-white px-4 py-3"><strong className="block text-xs text-slate-800">{labour.name}</strong><span className="text-[9px] text-slate-400">{labour.labourCode} {labour.site ? `- ${labour.site.siteName}` : "- No site"}</span></td>{dayList.map((day) => {
-                const key = `${labour._id}-${year}-${pad(month)}-${pad(day)}`
-                const entry = entryMap.get(key)
-                const isFuture = new Date(year, month - 1, day) > new Date()
-                const isSunday = new Date(year, month - 1, day).getDay() === 0
-                return <td key={day} className={`border-r border-slate-100 p-1 text-center ${isSunday ? "bg-rose-50" : ""}`}>{isFuture
-                  ? <span aria-label={`${labour.name}, day ${day}, future date`} className="inline-flex h-8 w-9 items-center justify-center rounded-full bg-slate-50 text-[9px] text-slate-300">-</span>
-                  : <select aria-label={`${labour.name}, day ${day}`} disabled={savingKey === key} value={entry?.status || ""} onChange={(e) => saveStatus(labour, day, e.target.value as Status)} className={`h-8 w-9 cursor-pointer appearance-none rounded-full border-0 text-center text-[9px] font-bold outline-none disabled:opacity-50 ${entry ? statusMeta[entry.status].className : "bg-slate-100 text-slate-400"}`}><option value="" className="bg-white text-slate-500">-</option>{statuses.map((status) => <option key={status} value={status} className={statusMeta[status].className}>{statusMeta[status].short}</option>)}</select>
-                }</td>
-              })}<td className="border-l border-slate-200 px-3 text-center text-xs font-bold">{days}</td><td className="border-l border-slate-200 px-3 text-center text-xs font-bold text-emerald-600">{row("PRESENT")}</td><td className="border-l border-slate-200 px-3 text-center text-xs font-bold text-red-600">{row("ABSENT")}</td><td className="border-l border-slate-200 px-3 text-center text-xs font-bold text-amber-600">{row("HALF_DAY")}</td><td className="border-l border-slate-200 px-3 text-center text-xs font-bold text-sky-600">{row("LEAVE")}</td><td className="border-l border-slate-200 px-3 text-center text-xs font-bold text-violet-600">{row("HOLIDAY")}</td></tr>
+              const rowOvertimeHours = rowEntries.reduce((sum, entry) => sum + Number(entry.overtimeHours || 0), 0)
+              const summaryCells = <><td rowSpan={2} className="border-l border-b border-slate-200 px-3 text-center text-xs font-bold">{days}</td><td rowSpan={2} className="border-l border-b border-slate-200 px-3 text-center text-xs font-bold text-emerald-600">{row("PRESENT")}</td><td rowSpan={2} className="border-l border-b border-slate-200 px-3 text-center text-xs font-bold text-red-600">{row("ABSENT")}</td><td rowSpan={2} className="border-l border-b border-slate-200 px-3 text-center text-xs font-bold text-amber-600">{row("HALF_DAY")}</td><td rowSpan={2} className="border-l border-b border-slate-200 px-3 text-center text-xs font-bold text-sky-600">{row("LEAVE")}</td><td rowSpan={2} className="border-l border-b border-slate-200 px-3 text-center text-xs font-bold text-violet-600">{row("HOLIDAY")}</td><td rowSpan={2} className="border-l border-b border-slate-200 px-3 text-center text-xs font-bold text-cyan-600">{rowOvertimeHours}</td><td rowSpan={2} className="min-w-28 border-l border-b border-slate-200 px-3 text-center text-[9px] font-semibold text-indigo-700">{labour.pfUanNumber || "-"}</td><td rowSpan={2} className="min-w-28 border-l border-b border-slate-200 px-3 text-center text-[9px] font-semibold text-sky-700">{labour.esicIpNumber || "-"}</td></>
+              return <Fragment key={labour._id}>
+                <tr className="hover:bg-slate-50">
+                  <td rowSpan={2} className="sticky left-0 z-10 border-r border-b border-slate-200 bg-white px-4 py-3 align-middle"><strong className="block text-xs text-slate-800">{labour.name}</strong><span className="text-[9px] text-slate-400">{labour.labourCode} {labour.site ? `- ${labour.site.siteName}` : "- No site"}</span></td><td className="sticky left-48 z-10 min-w-24 border-r border-b border-slate-200 bg-white px-3 text-center text-[9px] font-bold uppercase text-slate-500">Attendance</td>
+                  {dayList.map((day) => {
+                    const key = `${labour._id}-${year}-${pad(month)}-${pad(day)}`
+                    const entry = entryMap.get(key)
+                    const isFuture = new Date(year, month - 1, day) > new Date()
+                    const isSunday = new Date(year, month - 1, day).getDay() === 0
+                    return <td key={day} className={`border-r border-b border-slate-200 p-1 text-center ${isSunday ? "bg-rose-50" : ""}`}>{isFuture
+                      ? <span aria-label={`${labour.name}, day ${day}, future date`} className="inline-flex h-8 w-9 items-center justify-center rounded-full bg-slate-50 text-[9px] text-slate-300">-</span>
+                      : <select aria-label={`${labour.name}, day ${day}`} disabled={savingKey === key} value={entry?.status || ""} onChange={(event) => saveStatus(labour, day, event.target.value as Status)} className={`h-8 w-9 cursor-pointer appearance-none rounded-full border-0 text-center text-[9px] font-bold outline-none disabled:opacity-50 ${entry ? statusMeta[entry.status].className : "bg-slate-100 text-slate-400"}`}><option value="" className="bg-white text-slate-500">-</option>{statuses.map((status) => <option key={status} value={status} className={statusMeta[status].className}>{statusMeta[status].short}</option>)}</select>
+                    }</td>
+                  })}
+                  {summaryCells}
+                </tr>
+                <tr className="border-b border-slate-200 bg-cyan-50/30"><td className="sticky left-48 z-10 min-w-24 border-r border-t border-slate-200 bg-cyan-50 px-3 text-center text-[9px] font-bold uppercase text-cyan-700">OT Hours</td>
+                  {dayList.map((day) => {
+                    const key = `${labour._id}-${year}-${pad(month)}-${pad(day)}`
+                    const entry = entryMap.get(key)
+                    const isFuture = new Date(year, month - 1, day) > new Date()
+                    const isSunday = new Date(year, month - 1, day).getDay() === 0
+                    return <td key={day} className={`h-8 border-r border-slate-100 p-1 text-center ${isSunday ? "bg-rose-50" : ""}`}>{isFuture || !entry
+                      ? <span className="text-[8px] text-slate-300">-</span>
+                      : <input aria-label={`${labour.name}, day ${day}, OT hours`} title="OT Hours" type="number" min="0" step="0.5" defaultValue={entry.overtimeHours || ""} disabled={savingKey === `ot-${entry._id}`} onBlur={(event) => saveOvertime(entry, event.target.value)} placeholder="0" className="h-6 w-10 rounded border border-cyan-200 bg-white px-0.5 text-center text-[8px] font-semibold text-cyan-700 outline-none focus:border-cyan-500" />
+                    }</td>
+                  })}
+                </tr>
+              </Fragment>
             })}</tbody>
           </table>
           {loading && <div className="p-12 text-center text-sm text-slate-500">Loading attendance...</div>}
@@ -169,3 +202,8 @@ export default function AttendancePage() {
     </main>
   </div></div>
 }
+
+
+
+
+

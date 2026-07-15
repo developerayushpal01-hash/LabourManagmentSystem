@@ -45,7 +45,7 @@ const attendanceSchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: ["PRESENT", "ABSENT", "HALF_DAY", "LEAVE", "HOLIDAY"],
+      enum: ["PRESENT", "ABSENT", "HALF_DAY", "LEAVE", "HOLIDAY", "WEEKLY_OFF"],
       default: "PRESENT",
     },
 
@@ -67,8 +67,10 @@ const attendanceSchema = new mongoose.Schema(
 
     overtimeAmount: {
       type: Number,
-      default: 0,
+      default: null,
     },
+
+    overtimeRate: { type: Number, default: null, min: 0 },
 
     remarks: {
       type: String,

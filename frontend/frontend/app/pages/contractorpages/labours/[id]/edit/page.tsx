@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { FormEvent, useEffect, useState } from "react"
 import Link from "next/link"
@@ -10,9 +10,9 @@ import { apiUrl } from "@/lib/api"
 
 type Skill = { _id: string; skillName: string; defaultDailyWage?: number }
 type Site = { _id: string; siteName: string; siteCode?: string; status: string }
-type Labour = { _id: string; labourCode: string; name: string; mobile: string; gender: "MALE" | "FEMALE" | "OTHER"; address?: string; dailyWage?: number | null; finalDailyWage: number; status: string; skillId: Skill | null; site: Site | null }
+type Labour = { _id: string; labourCode: string; name: string; mobile: string; gender: "MALE" | "FEMALE" | "OTHER"; address?: string; dailyWage?: number | null; finalDailyWage: number; status: string; isPFApplicable?: boolean; pfUanNumber?: string | null; isESICApplicable?: boolean; esicIpNumber?: string | null; skillId: Skill | null; site: Site | null }
 type Api<T> = { success: boolean; data?: T; message?: string }
-type Form = { name: string; mobile: string; gender: Labour["gender"]; skillId: string; siteId: string; address: string; dailyWage: string }
+type Form = { name: string; mobile: string; gender: Labour["gender"]; skillId: string; siteId: string; address: string; dailyWage: string; isPFApplicable: boolean; pfUanNumber: string; isESICApplicable: boolean; esicIpNumber: string }
 const money = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 })
 
 export default function EditLabourPage() {
@@ -24,7 +24,7 @@ export default function EditLabourPage() {
   const [sites, setSites] = useState<Site[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [form, setForm] = useState<Form>({ name: "", mobile: "", gender: "MALE", skillId: "", siteId: "", address: "", dailyWage: "" })
+  const [form, setForm] = useState<Form>({ name: "", mobile: "", gender: "MALE", skillId: "", siteId: "", address: "", dailyWage: "", isPFApplicable: false, pfUanNumber: "", isESICApplicable: false, esicIpNumber: "" })
 
   useEffect(() => {
     const controller = new AbortController()
@@ -41,7 +41,7 @@ export default function EditLabourPage() {
       setLabour(item)
       setSkills(skillResult.data || [])
       setSites(siteResult.data || [])
-      setForm({ name: item.name, mobile: item.mobile, gender: item.gender, skillId: item.skillId?._id || "", siteId: item.site?._id || "", address: item.address || "", dailyWage: item.dailyWage?.toString() || "" })
+      setForm({ name: item.name, mobile: item.mobile, gender: item.gender, skillId: item.skillId?._id || "", siteId: item.site?._id || "", address: item.address || "", dailyWage: item.dailyWage?.toString() || "", isPFApplicable: Boolean(item.isPFApplicable), pfUanNumber: item.pfUanNumber || "", isESICApplicable: Boolean(item.isESICApplicable), esicIpNumber: item.esicIpNumber || "" })
     }).catch((error) => { if (error.name !== "AbortError") showToast(error.message, "error") }).finally(() => setLoading(false))
     return () => controller.abort()
   }, [id, showToast])
@@ -50,7 +50,7 @@ export default function EditLabourPage() {
     event.preventDefault()
     setSaving(true)
     try {
-      const body = { name: form.name, mobile: form.mobile, gender: form.gender, skillId: form.skillId, address: form.address, dailyWage: form.dailyWage === "" ? null : Number(form.dailyWage), ...(!labour?.site && { siteId: form.siteId }) }
+      const body = { name: form.name, mobile: form.mobile, gender: form.gender, skillId: form.skillId, address: form.address, dailyWage: form.dailyWage === "" ? null : Number(form.dailyWage), isPFApplicable: form.isPFApplicable, pfUanNumber: form.isPFApplicable ? form.pfUanNumber : null, isESICApplicable: form.isESICApplicable, esicIpNumber: form.isESICApplicable ? form.esicIpNumber : null, ...(!labour?.site && { siteId: form.siteId }) }
       const response = await fetch(apiUrl("/labours/update/" + id), { method: "PUT", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
       const result = await response.json() as Api<Labour>
       if (!response.ok || !result.success) throw new Error(result.message || "Labour could not be updated.")
@@ -85,7 +85,13 @@ export default function EditLabourPage() {
       <label className="text-xs font-semibold text-slate-600 sm:col-span-2">Address<textarea rows={3} value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} className="mt-2 w-full rounded-md border border-slate-300 p-3 text-sm font-normal" /></label>
     </div></section><section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm"><h2 className="border-b border-slate-100 pb-4 text-sm font-bold">Assignment &amp; Wage</h2><div className="mt-5 grid gap-5 sm:grid-cols-2">
       {labour.site ? <label className="text-xs font-semibold text-slate-600">Assigned site<input readOnly value={labour.site.siteName + (labour.site.siteCode ? " (" + labour.site.siteCode + ")" : "")} className="mt-2 h-11 w-full cursor-not-allowed rounded-md border border-slate-200 bg-slate-100 px-3 text-sm font-normal" /><span className="mt-2 block text-[10px] text-amber-600">Assigned site cannot be changed.</span></label> : <label className="text-xs font-semibold text-slate-600">Site *<select required value={form.siteId} onChange={(e) => setForm({ ...form, siteId: e.target.value })} className="mt-2 h-11 w-full rounded-md border border-slate-300 bg-white px-3 text-sm font-normal"><option value="">Select site</option>{sites.filter((site) => site.status === "ACTIVE").map((site) => <option key={site._id} value={site._id}>{site.siteName}</option>)}</select><span className="mt-2 block text-[10px] text-amber-600">Once assigned, site cannot be changed.</span></label>}
-      <label className="text-xs font-semibold text-slate-600">Daily wage<input type="number" min="0" value={form.dailyWage} onChange={(e) => setForm({ ...form, dailyWage: e.target.value })} placeholder="Use skill default" className="mt-2 h-11 w-full rounded-md border border-slate-300 px-3 text-sm font-normal" /><span className="mt-2 block text-[10px] font-normal text-slate-400">Skill change करने पर default wage automatically update होगा; जरूरत हो तो इसे override कर सकते हैं.</span></label>
+      <label className="text-xs font-semibold text-slate-600">Daily wage<input type="number" min="0" value={form.dailyWage} onChange={(e) => setForm({ ...form, dailyWage: e.target.value })} placeholder="Use skill default" className="mt-2 h-11 w-full rounded-md border border-slate-300 px-3 text-sm font-normal" /><span className="mt-2 block text-[10px] font-normal text-slate-500">Skill change karne par default wage automatically update hoga. Zarurat ho to amount manually change kar sakte hain.</span></label>
+    </div></section><section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm"><h2 className="border-b border-slate-100 pb-4 text-sm font-bold">PF &amp; ESIC Applicability</h2><p className="mt-3 text-[11px] text-slate-500">Enabled statutory deductions require a valid registration number.</p><div className="mt-5 grid gap-4 sm:grid-cols-2">
+      <div className={`rounded-lg border p-4 ${form.isPFApplicable ? "border-indigo-300 bg-indigo-50/50" : "border-slate-200 bg-slate-50"}`}><div className="flex items-center justify-between gap-3"><div><h3 className="text-xs font-bold text-slate-800">Provident Fund (PF)</h3><p className="mt-1 text-[10px] text-slate-500">Apply PF deduction</p></div><button type="button" role="switch" aria-checked={form.isPFApplicable} onClick={() => setForm((current) => ({ ...current, isPFApplicable: !current.isPFApplicable, pfUanNumber: current.isPFApplicable ? "" : current.pfUanNumber }))} className={`relative h-6 w-11 rounded-full transition ${form.isPFApplicable ? "bg-indigo-600" : "bg-slate-300"}`}><span className={`absolute top-1 h-4 w-4 rounded-full bg-white shadow transition-all ${form.isPFApplicable ? "left-6" : "left-1"}`} /></button></div>{form.isPFApplicable && <label className="mt-4 block text-xs font-semibold text-slate-600">UAN Number *<input required inputMode="numeric" pattern="[0-9]{12}" maxLength={12} value={form.pfUanNumber} onChange={(e) => setForm({ ...form, pfUanNumber: e.target.value.replace(/\D/g, "").slice(0, 12) })} placeholder="12-digit UAN" className="mt-2 h-11 w-full rounded-md border border-slate-300 bg-white px-3 text-sm font-normal" /></label>}</div>
+      <div className={`rounded-lg border p-4 ${form.isESICApplicable ? "border-sky-300 bg-sky-50/50" : "border-slate-200 bg-slate-50"}`}><div className="flex items-center justify-between gap-3"><div><h3 className="text-xs font-bold text-slate-800">ESIC</h3><p className="mt-1 text-[10px] text-slate-500">Apply ESIC deduction</p></div><button type="button" role="switch" aria-checked={form.isESICApplicable} onClick={() => setForm((current) => ({ ...current, isESICApplicable: !current.isESICApplicable, esicIpNumber: current.isESICApplicable ? "" : current.esicIpNumber }))} className={`relative h-6 w-11 rounded-full transition ${form.isESICApplicable ? "bg-sky-600" : "bg-slate-300"}`}><span className={`absolute top-1 h-4 w-4 rounded-full bg-white shadow transition-all ${form.isESICApplicable ? "left-6" : "left-1"}`} /></button></div>{form.isESICApplicable && <label className="mt-4 block text-xs font-semibold text-slate-600">ESIC IP Number *<input required inputMode="numeric" pattern="[0-9]{10}" maxLength={10} value={form.esicIpNumber} onChange={(e) => setForm({ ...form, esicIpNumber: e.target.value.replace(/\D/g, "").slice(0, 10) })} placeholder="10-digit IP number" className="mt-2 h-11 w-full rounded-md border border-slate-300 bg-white px-3 text-sm font-normal" /></label>}</div>
     </div></section></form></div>}
   </main></div></div>
 }
+
+
+

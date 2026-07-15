@@ -1,4 +1,4 @@
-const PayrollSetting = require("../models/PayrollSetting");
+﻿const PayrollSetting = require("../models/PayrollSetting");
 
 const getContractorId = (user) => {
   return user.role === "CONTRACTOR" ? user._id : user.parentUserId;
@@ -21,6 +21,10 @@ const createOrUpdatePayrollSetting = async (req, res) => {
       isESICEnabled,
       roundOffSalary,
       salaryCycle,
+      basicPercentage, hraPercentage, allowanceCalculationMode, allowanceValue, overtimeRate,
+      employeePFPercentage, employerPFPercentage, pfWageCeilingEnabled, pfWageCeiling,
+      employeeESICPercentage, employerESICPercentage, esicWageCeilingEnabled, esicWageCeiling,
+      isPaidLeaveEnabled, isPaidHolidayEnabled, isPaidWeeklyOffEnabled, allowNegativeSalary,
     } = req.body;
 
     const setting = await PayrollSetting.findOneAndUpdate(
@@ -47,6 +51,10 @@ const createOrUpdatePayrollSetting = async (req, res) => {
         isESICEnabled,
         roundOffSalary,
         salaryCycle,
+        basicPercentage, hraPercentage, allowanceCalculationMode, allowanceValue, overtimeRate,
+        employeePFPercentage, employerPFPercentage, pfWageCeilingEnabled, pfWageCeiling,
+        employeeESICPercentage, employerESICPercentage, esicWageCeilingEnabled, esicWageCeiling,
+        isPaidLeaveEnabled, isPaidHolidayEnabled, isPaidWeeklyOffEnabled, allowNegativeSalary,
 
         isDeleted: false,
       },
@@ -110,7 +118,7 @@ const updatePayrollSetting = async (req, res) => {
         contractorId,
         isDeleted: false,
       },
-      req.body,
+      { ...req.body, ...(req.body.employeePFPercentage !== undefined && { pfEmployeePercent: req.body.employeePFPercentage }), ...(req.body.employerPFPercentage !== undefined && { pfEmployerPercent: req.body.employerPFPercentage }), ...(req.body.employeeESICPercentage !== undefined && { esicEmployeePercent: req.body.employeeESICPercentage }), ...(req.body.employerESICPercentage !== undefined && { esicEmployerPercent: req.body.employerESICPercentage }) },
       {
         new: true,
         runValidators: true,
@@ -143,3 +151,4 @@ module.exports = {
   getPayrollSetting,
   updatePayrollSetting,
 };
+

@@ -2,6 +2,8 @@ const mongoose = require("mongoose");
 
 const salaryPaymentSchema = new mongoose.Schema(
   {
+    salaryId: { type: mongoose.Schema.Types.ObjectId, ref: "SalarySlip", default: null, index: true },
+
     companyId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Company",

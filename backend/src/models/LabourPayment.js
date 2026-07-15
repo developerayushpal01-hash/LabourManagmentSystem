@@ -1,10 +1,12 @@
-const mongoose = require("mongoose");
+﻿const mongoose = require("mongoose");
 
 const labourPaymentSchema = new mongoose.Schema(
   {
     companyId: { type: mongoose.Schema.Types.ObjectId, ref: "Company", required: true },
     contractorId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
     labourId: { type: mongoose.Schema.Types.ObjectId, ref: "Labour", required: true },
+    labourNameSnapshot: { type: String, default: "" },
+    labourCodeSnapshot: { type: String, default: "" },
 
     month: { type: Number, required: true },
     year: { type: Number, required: true },
@@ -39,6 +41,10 @@ const labourPaymentSchema = new mongoose.Schema(
       required: true,
     },
 
+    isAdjusted: { type: Boolean, default: false },
+    adjustedSalaryId: { type: mongoose.Schema.Types.ObjectId, ref: "SalarySlip", default: null },
+    adjustedAt: { type: Date, default: null },
+
     isDeleted: {
       type: Boolean,
       default: false,
@@ -48,3 +54,4 @@ const labourPaymentSchema = new mongoose.Schema(
 );
 
 module.exports = mongoose.model("LabourPayment", labourPaymentSchema);
+

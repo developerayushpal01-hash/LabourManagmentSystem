@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { FormEvent, useEffect, useState } from "react"
 import Link from "next/link"
@@ -11,8 +11,8 @@ import { apiUrl } from "@/lib/api"
 type Skill = { _id: string; skillName: string; defaultDailyWage?: number }
 type Site = { _id: string; siteName: string; siteCode?: string; status: string }
 type Api<T> = { success: boolean; data?: T; message?: string }
-type Form = { name: string; mobile: string; gender: string; dob: string; aadhaar: string; address: string; skillId: string; siteId: string; dailyWage: string }
-const initial: Form = { name: "", mobile: "", gender: "", dob: "", aadhaar: "", address: "", skillId: "", siteId: "", dailyWage: "" }
+type Form = { name: string; mobile: string; gender: string; dob: string; aadhaar: string; address: string; skillId: string; siteId: string; dailyWage: string; isPFApplicable: boolean; pfUanNumber: string; isESICApplicable: boolean; esicIpNumber: string }
+const initial: Form = { name: "", mobile: "", gender: "", dob: "", aadhaar: "", address: "", skillId: "", siteId: "", dailyWage: "", isPFApplicable: false, pfUanNumber: "", isESICApplicable: false, esicIpNumber: "" }
 const input = "mt-2 h-11 w-full rounded-md border border-slate-300 bg-white px-3 text-sm font-normal outline-none placeholder:text-slate-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
 
 function Title({ icon, children }: { icon: string; children: React.ReactNode }) {
@@ -61,7 +61,7 @@ export default function CreateLabourPage() {
     try {
       const response = await fetch(apiUrl("/labours/create"), {
         method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: form.name.trim(), mobile: form.mobile, gender: form.gender, dob: form.dob || null, address: form.address.trim(), skillId: form.skillId, siteId: form.siteId, dailyWage: form.dailyWage === "" ? null : Number(form.dailyWage) }),
+        body: JSON.stringify({ name: form.name.trim(), mobile: form.mobile, gender: form.gender, dob: form.dob || null, address: form.address.trim(), skillId: form.skillId, siteId: form.siteId, dailyWage: form.dailyWage === "" ? null : Number(form.dailyWage), isPFApplicable: form.isPFApplicable, pfUanNumber: form.isPFApplicable ? form.pfUanNumber : null, isESICApplicable: form.isESICApplicable, esicIpNumber: form.isESICApplicable ? form.esicIpNumber : null }),
       })
       const result = await response.json() as Api<unknown>
       if (!response.ok || !result.success) throw new Error(result.message || "Labour could not be registered.")
@@ -86,6 +86,19 @@ export default function CreateLabourPage() {
           <section><Title icon="[]">Employment &amp; Payroll</Title>
             <div className="mt-5 grid gap-5 md:grid-cols-2"><Field label="Site / Location"><select required disabled={loading} value={form.siteId} onChange={(e) => setForm({ ...form, siteId: e.target.value })} className={input}><option value="">{loading ? "Loading sites..." : "Select Active Site"}</option>{sites.map((site) => <option key={site._id} value={site._id}>{site.siteName}{site.siteCode ? ` (${site.siteCode})` : ""}</option>)}</select></Field><Field label="Skill / Wage Type"><select required disabled={loading} value={form.skillId} onChange={(e) => changeSkill(e.target.value)} className={input}><option value="">{loading ? "Loading skills..." : "Select Labour Skill"}</option>{skills.map((skill) => <option key={skill._id} value={skill._id}>{skill.skillName}</option>)}</select></Field><Field label="Wage Amount (INR)"><input type="number" min="0" value={form.dailyWage} onChange={(e) => setForm({ ...form, dailyWage: e.target.value })} placeholder="Enter amount" className={input} /></Field><Field label="Payroll Basis"><div className="mt-2 grid h-11 grid-cols-2 gap-2"><span className="flex items-center justify-center rounded-md border-2 border-indigo-500 bg-indigo-50 text-xs font-semibold text-indigo-700">Daily Wage</span><span className="flex items-center justify-center rounded-md border border-slate-200 bg-slate-50 text-xs text-slate-400">Monthly Salary</span></div></Field></div>
           </section>
+          <section><Title icon="%">PF &amp; ESIC Applicability</Title>
+            <p className="mt-3 text-[11px] text-slate-500">Enable only the statutory deductions applicable to this labour. Enabled benefits require their registration number.</p>
+            <div className="mt-5 grid gap-4 md:grid-cols-2">
+              <div className={`rounded-lg border p-4 ${form.isPFApplicable ? "border-indigo-300 bg-indigo-50/50" : "border-slate-200 bg-slate-50"}`}>
+                <div className="flex items-center justify-between gap-4"><div><h3 className="text-sm font-bold text-slate-800">Provident Fund (PF)</h3><p className="mt-1 text-[10px] text-slate-500">Employee and employer PF will be calculated.</p></div><button type="button" role="switch" aria-checked={form.isPFApplicable} onClick={() => setForm((current) => ({ ...current, isPFApplicable: !current.isPFApplicable, pfUanNumber: current.isPFApplicable ? "" : current.pfUanNumber }))} className={`relative h-6 w-11 rounded-full transition ${form.isPFApplicable ? "bg-indigo-600" : "bg-slate-300"}`}><span className={`absolute top-1 h-4 w-4 rounded-full bg-white shadow transition-all ${form.isPFApplicable ? "left-6" : "left-1"}`} /></button></div>
+                {form.isPFApplicable && <Field label="UAN Number *"><input required inputMode="numeric" pattern="[0-9]{12}" minLength={12} maxLength={12} value={form.pfUanNumber} onChange={(e) => setForm({ ...form, pfUanNumber: e.target.value.replace(/\D/g, "").slice(0, 12) })} placeholder="Enter 12-digit UAN" className={input} /><span className="mt-1 block text-[10px] text-slate-400">Exactly 12 digits required.</span></Field>}
+              </div>
+              <div className={`rounded-lg border p-4 ${form.isESICApplicable ? "border-sky-300 bg-sky-50/50" : "border-slate-200 bg-slate-50"}`}>
+                <div className="flex items-center justify-between gap-4"><div><h3 className="text-sm font-bold text-slate-800">ESIC</h3><p className="mt-1 text-[10px] text-slate-500">Employee and employer ESIC will be calculated.</p></div><button type="button" role="switch" aria-checked={form.isESICApplicable} onClick={() => setForm((current) => ({ ...current, isESICApplicable: !current.isESICApplicable, esicIpNumber: current.isESICApplicable ? "" : current.esicIpNumber }))} className={`relative h-6 w-11 rounded-full transition ${form.isESICApplicable ? "bg-sky-600" : "bg-slate-300"}`}><span className={`absolute top-1 h-4 w-4 rounded-full bg-white shadow transition-all ${form.isESICApplicable ? "left-6" : "left-1"}`} /></button></div>
+                {form.isESICApplicable && <Field label="ESIC IP Number *"><input required inputMode="numeric" pattern="[0-9]{10}" minLength={10} maxLength={10} value={form.esicIpNumber} onChange={(e) => setForm({ ...form, esicIpNumber: e.target.value.replace(/\D/g, "").slice(0, 10) })} placeholder="Enter 10-digit IP number" className={input} /><span className="mt-1 block text-[10px] text-slate-400">Exactly 10 digits required.</span></Field>}
+              </div>
+            </div>
+          </section>
           <section><Title icon="[+]">Verification Documents <small className="font-normal text-slate-400">(optional)</small></Title>
             <div className="mt-5 grid gap-5 md:grid-cols-2"><label className="flex min-h-52 cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-indigo-300 bg-slate-50 p-6 text-center hover:bg-indigo-50"><input type="file" accept="image/png,image/jpeg" className="sr-only" onChange={(e) => { const file = e.target.files?.[0]; if (!file) return; if (file.size > 2097152) { showToast("Photo must be smaller than 2 MB.", "error"); e.target.value = ""; return } setPhoto(file.name) }} /><span className="flex h-14 w-14 items-center justify-center rounded-xl bg-indigo-100 text-xl text-indigo-600">[+]</span><strong className="mt-4 text-xs">{photo || "Upload Labour Photo"}</strong><span className="mt-2 text-[10px] leading-5 text-slate-500">Click to browse or drag and drop<br />Max size: 2MB, JPG/PNG</span></label><div className="relative flex min-h-52 overflow-hidden rounded-lg bg-gradient-to-br from-slate-700 via-slate-500 to-indigo-300 p-6 text-white"><div className="absolute -right-10 -top-16 h-52 w-52 rounded-full bg-white/20 blur-2xl" /><div className="relative m-auto text-center"><span className="mx-auto flex h-14 w-14 items-center justify-center rounded-xl border border-white/40 bg-white/10 text-xl">ID</span><strong className="mt-4 block text-xs">Verify Identity via KYC</strong><span className="mt-1 block text-[10px] text-white/70">Document verification coming soon</span></div></div></div>
             <p className="mt-3 text-[10px] text-slate-400">Photo and Aadhaar are not uploaded until document storage is enabled.</p>
@@ -97,3 +110,4 @@ export default function CreateLabourPage() {
     </main>
   </div></div>
 }
+
