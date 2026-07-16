@@ -15,7 +15,7 @@ const menu = [
   { id: "invoices", label: "Invoices", href: "/pages/contractorpages/invoices" },
   { id: "reports", label: "Reports", href: "/pages/contractorpages/reports" },
   { id: "profile", label: "Profile", href: "/pages/profile" },
-  { id: "settings", label: "Settings", href: "#" },
+  { id: "settings", label: "Settings", href: "/pages/settings" },
 ]
 
 const Icon = ({ name }: { name: string }) => {
@@ -109,6 +109,7 @@ const Sidebar: React.FC = () => {
                   { label: "Salary Report", href: "/pages/contractorpages/reports/salary", active: pathname.startsWith(m.href + "/salary") },
                   { label: "Payment Report", href: "/pages/contractorpages/reports/payments", active: pathname.startsWith(m.href + "/payments") },
                   { label: "Workforce Report", href: "/pages/contractorpages/reports/workforce", active: pathname.startsWith(m.href + "/workforce") },
+                  { label: "GST Details", href: "/pages/contractorpages/reports/gst", active: pathname.startsWith(m.href + "/gst") },
                 ]
                 return (
                   <li key={m.id}>

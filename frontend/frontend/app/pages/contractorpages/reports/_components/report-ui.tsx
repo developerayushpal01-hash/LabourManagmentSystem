@@ -1,4 +1,4 @@
-﻿"use client"
+"use client"
 
 import { ReactNode, useState } from "react"
 import Link from "next/link"
@@ -15,7 +15,7 @@ export const pad = (value: number) => String(value).padStart(2, "0")
 export function ReportPage({ title, description, children }: { title: string; description: string; children: ReactNode }) {
   return <div className="flex h-screen overflow-hidden bg-[#f7f8fc]"><Sidebar /><div className="flex min-w-0 flex-1 flex-col overflow-hidden"><Navbar /><main className="min-h-0 flex-1 overflow-y-auto p-5 lg:p-7">
     <header><p className="text-xs text-slate-500">Dashboard / Reports / <span className="font-semibold text-indigo-600">{title}</span></p><h1 className="mt-2 text-2xl font-bold text-slate-950">{title}</h1><p className="mt-1 text-sm text-slate-500">{description}</p></header>
-    <nav className="mt-5 flex gap-2 overflow-x-auto border-b border-slate-200 pb-3 text-sm">{[["Overview","/pages/contractorpages/reports"],["Attendance","/pages/contractorpages/reports/attendance"],["Salary","/pages/contractorpages/reports/salary"],["Payments","/pages/contractorpages/reports/payments"],["Workforce","/pages/contractorpages/reports/workforce"]].map(([label,href]) => <Link key={href} href={href} className="whitespace-nowrap rounded-md border border-slate-200 bg-white px-3 py-2 font-medium text-slate-600 hover:border-indigo-300 hover:text-indigo-700">{label}</Link>)}</nav>
+    <nav className="mt-5 flex gap-2 overflow-x-auto border-b border-slate-200 pb-3 text-sm">{[["Overview","/pages/contractorpages/reports"],["Attendance","/pages/contractorpages/reports/attendance"],["Salary","/pages/contractorpages/reports/salary"],["Payments","/pages/contractorpages/reports/payments"],["Workforce","/pages/contractorpages/reports/workforce"],["GST Details","/pages/contractorpages/reports/gst"]].map(([label,href]) => <Link key={href} href={href} className="whitespace-nowrap rounded-md border border-slate-200 bg-white px-3 py-2 font-medium text-slate-600 hover:border-indigo-300 hover:text-indigo-700">{label}</Link>)}</nav>
     {children}
   </main></div></div>
 }

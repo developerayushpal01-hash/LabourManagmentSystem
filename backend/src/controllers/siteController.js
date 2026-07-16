@@ -1,4 +1,4 @@
-const Site = require("../models/Site");
+﻿const Site = require("../models/Site");
 
 const getContractorId = (user) => {
   return user.role === "CONTRACTOR" ? user._id : user.parentUserId;
@@ -80,9 +80,13 @@ const createSite = async (req, res) => {
       location,
       startDate,
       endDate,
+      clientGstNumber, addressLine, city, district, state, pincode, billingCycleStartDay, billingCycleEndDay,
     } = req.body;
 
-    const validationError = validateSiteDetails(req.body);
+    const normalizedLocation = String(location || [addressLine, city, district, state, pincode].filter(Boolean).join(", ")).trim();
+    const cycleStart = Number(billingCycleStartDay || 1), cycleEnd = Number(billingCycleEndDay || 0);
+    if (!Number.isInteger(cycleStart) || cycleStart < 1 || cycleStart > 31 || !Number.isInteger(cycleEnd) || cycleEnd < 0 || cycleEnd > 31) return res.status(400).json({ success: false, message: "Billing cycle days must be between 1 and 31" });
+    const validationError = validateSiteDetails({ ...req.body, location: normalizedLocation });
     if (validationError) {
       return res.status(400).json({
         success: false,
@@ -111,7 +115,15 @@ const createSite = async (req, res) => {
       contactMobile: normalizedContactMobile,
       contactEmail: String(contactEmail).trim(),
       projectValue: Number(projectValue),
-      location: String(location).trim(),
+      location: normalizedLocation,
+      clientGstNumber: String(clientGstNumber || "").trim(),
+      addressLine: String(addressLine || "").trim(),
+      city: String(city || "").trim(),
+      district: String(district || "").trim(),
+      state: String(state || "").trim(),
+      pincode: String(pincode || "").trim(),
+      billingCycleStartDay: cycleStart,
+      billingCycleEndDay: cycleEnd,
       startDate,
       endDate,
     });
@@ -185,10 +197,14 @@ const updateSite = async (req, res) => {
       location,
       startDate,
       endDate,
+      clientGstNumber, addressLine, city, district, state, pincode, billingCycleStartDay, billingCycleEndDay,
       status,
     } = req.body;
 
-    const validationError = validateSiteDetails(req.body);
+    const normalizedLocation = String(location || [addressLine, city, district, state, pincode].filter(Boolean).join(", ")).trim();
+    const cycleStart = Number(billingCycleStartDay || 1), cycleEnd = Number(billingCycleEndDay || 0);
+    if (!Number.isInteger(cycleStart) || cycleStart < 1 || cycleStart > 31 || !Number.isInteger(cycleEnd) || cycleEnd < 0 || cycleEnd > 31) return res.status(400).json({ success: false, message: "Billing cycle days must be between 1 and 31" });
+    const validationError = validateSiteDetails({ ...req.body, location: normalizedLocation });
     if (validationError) {
       return res.status(400).json({
         success: false,
@@ -217,7 +233,15 @@ const updateSite = async (req, res) => {
       contactMobile: normalizedContactMobile,
       contactEmail: String(contactEmail).trim(),
       projectValue: Number(projectValue),
-      location: String(location).trim(),
+      location: normalizedLocation,
+      clientGstNumber: String(clientGstNumber || "").trim(),
+      addressLine: String(addressLine || "").trim(),
+      city: String(city || "").trim(),
+      district: String(district || "").trim(),
+      state: String(state || "").trim(),
+      pincode: String(pincode || "").trim(),
+      billingCycleStartDay: cycleStart,
+      billingCycleEndDay: cycleEnd,
       startDate: startDate || null,
       endDate: endDate || null,
       ...(status && { status }),
@@ -331,3 +355,4 @@ module.exports = {
   changeSiteStatus,
   deleteSite,
 };
+

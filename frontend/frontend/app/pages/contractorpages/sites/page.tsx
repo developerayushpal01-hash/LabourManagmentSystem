@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { FormEvent, useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
@@ -18,6 +18,14 @@ type Site = {
   contactEmail?: string
   projectValue?: number
   location?: string
+  clientGstNumber?: string
+  addressLine?: string
+  city?: string
+  district?: string
+  state?: string
+  pincode?: string
+  billingCycleStartDay?: number
+  billingCycleEndDay?: number
   startDate?: string | null
   endDate?: string | null
   status: SiteStatus
@@ -35,6 +43,14 @@ type SiteForm = {
   clientName: string
   contactMobile: string
   contactEmail: string
+  clientGstNumber: string
+  addressLine: string
+  city: string
+  district: string
+  state: string
+  pincode: string
+  billingCycleStartDay: string
+  billingCycleEndDay: string
   projectValue: string
   location: string
   startDate: string
@@ -43,17 +59,8 @@ type SiteForm = {
 }
 
 const emptyForm: SiteForm = {
-  siteName: "",
-  clientName: "",
-  contactMobile: "",
-  contactEmail: "",
-  projectValue: "",
-  location: "",
-  startDate: "",
-  endDate: "",
-  status: "ACTIVE",
+  siteName: "", clientName: "", contactMobile: "", contactEmail: "", clientGstNumber: "", addressLine: "", city: "", district: "", state: "", pincode: "", billingCycleStartDay: "1", billingCycleEndDay: "0", projectValue: "", location: "", startDate: "", endDate: "", status: "ACTIVE",
 }
-
 const PAGE_SIZE = 8
 const currency = new Intl.NumberFormat("en-IN", {
   style: "currency",
@@ -172,6 +179,14 @@ const SitesPage = () => {
       clientName: site.clientName ?? "",
       contactMobile: site.contactMobile ?? "",
       contactEmail: site.contactEmail ?? "",
+      clientGstNumber: site.clientGstNumber ?? "",
+      addressLine: site.addressLine ?? "",
+      city: site.city ?? "",
+      district: site.district ?? "",
+      state: site.state ?? "",
+      pincode: site.pincode ?? "",
+      billingCycleStartDay: String(site.billingCycleStartDay ?? 1),
+      billingCycleEndDay: String(site.billingCycleEndDay ?? 0),
       projectValue: site.projectValue?.toString() ?? "",
       location: site.location ?? "",
       startDate: toDateInput(site.startDate),
@@ -199,6 +214,9 @@ const SitesPage = () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...form,
+          location: [form.addressLine, form.city, form.district, form.state, form.pincode].filter(Boolean).join(", ") || form.location,
+          billingCycleStartDay: Number(form.billingCycleStartDay || 1),
+          billingCycleEndDay: Number(form.billingCycleEndDay || 0),
           projectValue: form.projectValue ? Number(form.projectValue) : 0,
           startDate: form.startDate || null,
           endDate: form.endDate || null,
@@ -272,9 +290,9 @@ const SitesPage = () => {
 
           <section className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             {[
-              { label: "Total Sites", value: sites.length, note: "All registered projects", icon: "▥", color: "bg-indigo-50 text-indigo-700" },
-              { label: "Active Progress", value: activeSites, note: "Projects in progress", icon: "◫", color: "bg-amber-50 text-amber-600" },
-              { label: "Total Value", value: compactCurrency.format(totalValue), note: "Combined project value", icon: "₹", color: "bg-emerald-50 text-emerald-700" },
+              { label: "Total Sites", value: sites.length, note: "All registered projects", icon: "S", color: "bg-indigo-50 text-indigo-700" },
+              { label: "Active Progress", value: activeSites, note: "Projects in progress", icon: "A", color: "bg-amber-50 text-amber-600" },
+              { label: "Total Value", value: compactCurrency.format(totalValue), note: "Combined project value", icon: "Rs", color: "bg-emerald-50 text-emerald-700" },
               { label: "Urgent Alerts", value: urgentSites, note: "Ending within 30 days", icon: "!", color: "bg-red-50 text-red-600" },
             ].map((card) => (
               <article key={card.label} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
@@ -293,8 +311,8 @@ const SitesPage = () => {
           <section className="mt-5 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
             <div className="flex flex-col gap-3 border-b border-slate-200 p-4 lg:flex-row lg:items-center lg:justify-between">
               <div className="flex flex-wrap gap-2">
-                <button type="button" onClick={() => setShowFilters((current) => !current)} className="h-9 rounded-md border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50">☰ &nbsp;Filter</button>
-                <button type="button" onClick={cycleSort} className="h-9 rounded-md border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50">⇅ &nbsp;Sort: {sortBy.toLowerCase()}</button>
+                <button type="button" onClick={() => setShowFilters((current) => !current)} className="h-9 rounded-md border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50">Filter</button>
+                <button type="button" onClick={cycleSort} className="h-9 rounded-md border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50">Sort: {sortBy.toLowerCase()}</button>
               </div>
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                 <input value={query} onChange={(event) => { setQuery(event.target.value); setCurrentPage(1) }} placeholder="Search sites..." className="h-9 w-full rounded-md border border-slate-300 px-3 text-xs outline-none focus:border-indigo-500 sm:w-64" />
@@ -329,7 +347,7 @@ const SitesPage = () => {
                       <td className="px-5 py-4 text-xs text-slate-500">{String((currentPage - 1) * PAGE_SIZE + index + 1).padStart(2, "0")}</td>
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-3">
-                          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-gradient-to-br from-indigo-500 via-sky-500 to-emerald-400 text-lg text-white shadow-sm">▥</span>
+                          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-gradient-to-br from-indigo-500 via-sky-500 to-emerald-400 text-lg text-white shadow-sm">S</span>
                           <div>
                             <p className="font-semibold text-slate-900">{site.siteName}</p>
                             <p className="mt-0.5 text-[11px] text-slate-500">{site.location || "Location not added"}</p>
@@ -382,18 +400,18 @@ const SitesPage = () => {
             <form id="site-project-form" onSubmit={handleSubmit} className="grid gap-4 p-4 lg:grid-cols-[1fr_300px]">
               <div className="space-y-4">
               <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-                <div className="mb-5 flex items-center gap-3 border-b border-slate-100 pb-4"><span className="flex h-9 w-9 items-center justify-center rounded-md bg-indigo-100 text-indigo-700">ⓘ</span><div><h3 className="text-sm font-bold text-slate-900">General Information</h3><p className="text-[10px] text-slate-400">Project, client and contact details</p></div></div>
+                <div className="mb-5 flex items-center gap-3 border-b border-slate-100 pb-4"><span className="flex h-9 w-9 items-center justify-center rounded-md bg-indigo-100 text-indigo-700">i</span><div><h3 className="text-sm font-bold text-slate-900">General Information</h3><p className="text-[10px] text-slate-400">Project, client and contact details</p></div></div>
                 <div className="grid gap-4 sm:grid-cols-2">
               <label className="text-xs font-semibold text-slate-600">Site name *<input required value={form.siteName} onChange={(event) => setForm({ ...form, siteName: event.target.value })} className="mt-1 h-10 w-full rounded-md border border-slate-300 px-3 text-sm font-normal outline-none focus:border-indigo-500" /></label>
-              <label className="text-xs font-semibold text-slate-600 sm:col-span-2">Location *<input required value={form.location} onChange={(event) => setForm({ ...form, location: event.target.value })} placeholder="Full physical location details" className="mt-1 h-11 w-full rounded-md border border-slate-300 px-3 text-sm font-normal outline-none focus:border-indigo-500" /></label>
-              <label className="text-xs font-semibold text-slate-600">Client name *<input required value={form.clientName} onChange={(event) => setForm({ ...form, clientName: event.target.value })} className="mt-1 h-10 w-full rounded-md border border-slate-300 px-3 text-sm font-normal outline-none focus:border-indigo-500" /></label>
+              <label className="text-xs font-semibold text-slate-600">Client GST Number<input value={form.clientGstNumber} onChange={(event) => setForm({ ...form, clientGstNumber: event.target.value.toUpperCase() })} placeholder="23ABCDE1234F1Z5" maxLength={15} className="mt-1 h-10 w-full rounded-md border border-slate-300 px-3 text-sm font-normal outline-none focus:border-indigo-500" /></label><label className="text-xs font-semibold text-slate-600 sm:col-span-2">Address line *<input required value={form.addressLine} onChange={(event) => setForm({ ...form, addressLine: event.target.value })} placeholder="Building, street, area" className="mt-1 h-11 w-full rounded-md border border-slate-300 px-3 text-sm font-normal outline-none focus:border-indigo-500" /></label><label className="text-xs font-semibold text-slate-600">City *<input required value={form.city} onChange={(event) => setForm({ ...form, city: event.target.value })} className="mt-1 h-10 w-full rounded-md border border-slate-300 px-3 text-sm font-normal outline-none focus:border-indigo-500" /></label><label className="text-xs font-semibold text-slate-600">District *<input required value={form.district} onChange={(event) => setForm({ ...form, district: event.target.value })} className="mt-1 h-10 w-full rounded-md border border-slate-300 px-3 text-sm font-normal outline-none focus:border-indigo-500" /></label><label className="text-xs font-semibold text-slate-600">State *<input required value={form.state} onChange={(event) => setForm({ ...form, state: event.target.value })} className="mt-1 h-10 w-full rounded-md border border-slate-300 px-3 text-sm font-normal outline-none focus:border-indigo-500" /></label><label className="text-xs font-semibold text-slate-600">PIN Code *<input required inputMode="numeric" pattern="[0-9]{6}" maxLength={6} value={form.pincode} onChange={(event) => setForm({ ...form, pincode: event.target.value.replace(/\D/g, "") })} className="mt-1 h-10 w-full rounded-md border border-slate-300 px-3 text-sm font-normal outline-none focus:border-indigo-500" /></label>
+              <label className="text-xs font-semibold text-slate-600">Billing From Day *<select value={form.billingCycleStartDay} onChange={(event) => setForm({ ...form, billingCycleStartDay: event.target.value })} className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm font-normal">{Array.from({length:31},(_,index)=><option key={index+1} value={index+1}>{index+1}</option>)}</select></label><label className="text-xs font-semibold text-slate-600">Billing To Day *<select value={form.billingCycleEndDay} onChange={(event) => setForm({ ...form, billingCycleEndDay: event.target.value })} className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm font-normal"><option value="0">Month End</option>{Array.from({length:31},(_,index)=><option key={index+1} value={index+1}>{index+1}</option>)}</select></label>              <label className="text-xs font-semibold text-slate-600">Client name *<input required value={form.clientName} onChange={(event) => setForm({ ...form, clientName: event.target.value })} className="mt-1 h-10 w-full rounded-md border border-slate-300 px-3 text-sm font-normal outline-none focus:border-indigo-500" /></label>
               <label className="text-xs font-semibold text-slate-600">Contact mobile *<input required type="tel" inputMode="numeric" pattern="[0-9]+" value={form.contactMobile} onChange={(event) => setForm({ ...form, contactMobile: event.target.value.replace(/\D/g, "") })} className="mt-1 h-10 w-full rounded-md border border-slate-300 px-3 text-sm font-normal outline-none focus:border-indigo-500" /></label>
               <label className="text-xs font-semibold text-slate-600">Contact email *<input required type="email" value={form.contactEmail} onChange={(event) => setForm({ ...form, contactEmail: event.target.value })} className="mt-1 h-10 w-full rounded-md border border-slate-300 px-3 text-sm font-normal outline-none focus:border-indigo-500" /></label>
               <label className="text-xs font-semibold text-slate-600">Project value *<input required type="number" min="0" value={form.projectValue} onChange={(event) => setForm({ ...form, projectValue: event.target.value })} className="mt-1 h-10 w-full rounded-md border border-slate-300 px-3 text-sm font-normal outline-none focus:border-indigo-500" /></label>
                 </div>
               </section>
               <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-                <div className="mb-5 flex items-center gap-3 border-b border-slate-100 pb-4"><span className="flex h-9 w-9 items-center justify-center rounded-md bg-sky-100 text-sky-700">▣</span><div><h3 className="text-sm font-bold text-slate-900">Timeline &amp; Status</h3><p className="text-[10px] text-slate-400">Project schedule and operational state</p></div></div>
+                <div className="mb-5 flex items-center gap-3 border-b border-slate-100 pb-4"><span className="flex h-9 w-9 items-center justify-center rounded-md bg-sky-100 text-sky-700">T</span><div><h3 className="text-sm font-bold text-slate-900">Timeline &amp; Status</h3><p className="text-[10px] text-slate-400">Project schedule and operational state</p></div></div>
                 <div className="grid gap-4 sm:grid-cols-2">
               <label className="text-xs font-semibold text-slate-600">Start date *<input required type="date" value={form.startDate} onChange={(event) => setForm({ ...form, startDate: event.target.value })} className="mt-1 h-10 w-full rounded-md border border-slate-300 px-3 text-sm font-normal outline-none focus:border-indigo-500" /></label>
               <label className="text-xs font-semibold text-slate-600">End date<input type="date" min={form.startDate || undefined} value={form.endDate} onChange={(event) => setForm({ ...form, endDate: event.target.value })} className="mt-1 h-10 w-full rounded-md border border-slate-300 px-3 text-sm font-normal outline-none focus:border-indigo-500" /></label>
@@ -404,7 +422,7 @@ const SitesPage = () => {
 
               <aside className="space-y-4">
                 <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-                  <div className="flex items-center gap-3"><span className="flex h-9 w-9 items-center justify-center rounded-md bg-indigo-100 text-indigo-700">▦</span><div><h3 className="text-sm font-bold text-slate-900">Project Overview</h3><p className="text-[10px] text-slate-400">Live registration preview</p></div></div>
+                  <div className="flex items-center gap-3"><span className="flex h-9 w-9 items-center justify-center rounded-md bg-indigo-100 text-indigo-700">O</span><div><h3 className="text-sm font-bold text-slate-900">Project Overview</h3><p className="text-[10px] text-slate-400">Live registration preview</p></div></div>
                   <dl className="mt-4 divide-y divide-slate-100 text-xs">
                     <div className="py-3"><dt className="text-[9px] uppercase tracking-wide text-slate-400">Site name</dt><dd className="mt-1 font-semibold text-slate-700">{form.siteName || "New construction site"}</dd></div>
                     <div className="py-3"><dt className="text-[9px] uppercase tracking-wide text-slate-400">Client</dt><dd className="mt-1 font-semibold text-slate-700">{form.clientName || "Not entered"}</dd></div>
@@ -445,7 +463,7 @@ const SitesPage = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4" role="dialog" aria-modal="true" aria-labelledby="site-details-title" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelectedSite(null) }}>
           <div className="w-full max-w-lg rounded-lg bg-white p-6 shadow-2xl">
             <div className="flex items-start justify-between">
-              <div className="flex items-center gap-3"><span className="flex h-12 w-12 items-center justify-center rounded-md bg-gradient-to-br from-indigo-500 to-emerald-400 text-xl text-white">▥</span><div><h2 id="site-details-title" className="font-bold text-slate-950">{selectedSite.siteName}</h2><p className="text-xs font-medium text-indigo-600">{selectedSite.siteCode || "No site code"}</p></div></div>
+              <div className="flex items-center gap-3"><span className="flex h-12 w-12 items-center justify-center rounded-md bg-gradient-to-br from-indigo-500 to-emerald-400 text-xl text-white">S</span><div><h2 id="site-details-title" className="font-bold text-slate-950">{selectedSite.siteName}</h2><p className="text-xs font-medium text-indigo-600">{selectedSite.siteCode || "No site code"}</p></div></div>
               <button type="button" onClick={() => setSelectedSite(null)} className="text-2xl text-slate-400">&times;</button>
             </div>
             <dl className="mt-6 grid grid-cols-2 gap-4 text-sm">
@@ -466,3 +484,4 @@ const SitesPage = () => {
 }
 
 export default SitesPage
+

@@ -27,11 +27,19 @@ type Invoice = {
   taxableAmount: number
   gstPercent: number
   gstAmount: number
+  cgstEnabled?: boolean
+  cgstPercent?: number
+  cgstAmount?: number
+  sgstEnabled?: boolean
+  sgstPercent?: number
+  sgstAmount?: number
   totalAmount: number
   paidAmount: number
   balanceAmount: number
   status: string
   notes?: string
+  declarationEnabled?: boolean
+  declarationText?: string
   supplierGstNumber?: string
   buyerGstNumber?: string
 }
@@ -39,6 +47,20 @@ type Api<T> = { success: boolean; data?: T; message?: string }
 
 const money = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 2 })
 const date = new Intl.DateTimeFormat("en-IN", { dateStyle: "medium" })
+const invoiceDate=(value:string)=>new Date(value).toLocaleDateString("en-GB")
+const invoiceAmount=new Intl.NumberFormat("en-IN",{maximumFractionDigits:2})
+const billMonth=(value:string)=>new Date(value).toLocaleDateString("en-US",{month:"short",year:"numeric"})
+const compactInvoiceNumber=(value:string)=>value.replace(/^INV-\d{2}(\d{2})-(\d{2})-(.+)$/,"$1-$2/$3")
+const invoiceNumberSize=(value:string)=>{const length=`Invoice No. GST/${compactInvoiceNumber(value)}`.length;return length<=26?12:length<=31?10:8}
+const amountInWords=(value:number)=>{
+  const ones=["","One","Two","Three","Four","Five","Six","Seven","Eight","Nine","Ten","Eleven","Twelve","Thirteen","Fourteen","Fifteen","Sixteen","Seventeen","Eighteen","Nineteen"]
+  const tens=["","","Twenty","Thirty","Forty","Fifty","Sixty","Seventy","Eighty","Ninety"]
+  const belowHundred=(n:number)=>n<20?ones[n]:`${tens[Math.floor(n/10)]}${n%10?` ${ones[n%10]}`:""}`
+  const belowThousand=(n:number)=>n>=100?`${ones[Math.floor(n/100)]} Hundred${n%100?` ${belowHundred(n%100)}`:""}`:belowHundred(n)
+  const integerWords=(n:number)=>{if(n===0)return "Zero";const parts:string[]=[];for(const [label,size] of [["Crore",10000000],["Lakh",100000],["Thousand",1000]] as const){const count=Math.floor(n/size);if(count){parts.push(`${belowHundred(count)} ${label}`);n%=size}}if(n)parts.push(belowThousand(n));return parts.join(" ")}
+  const rupees=Math.floor(Math.abs(value)),paise=Math.round((Math.abs(value)-rupees)*100)
+  return `${value<0?"Minus ":""}${integerWords(rupees)} Rupees${paise?` and ${integerWords(paise)} Paise`:""} Only`
+}
 
 export default function InvoiceManagementPage() {
   const { showToast } = useToast()
@@ -98,18 +120,24 @@ export default function InvoiceManagementPage() {
 
   const updatePayment = async () => {
     if (!selected) return
+    const paidAmount = Number(paid)
+    if (!Number.isFinite(paidAmount) || paidAmount < 0 || paidAmount > Number(selected.totalAmount)) {
+      showToast("Received amount must be between zero and the invoice total.", "error")
+      return
+    }
     setSaving(true)
     try {
       const r = await fetch(apiUrl(`/site-invoices/${selected._id}/payment`), {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ paidAmount: Number(paid) }),
+        body: JSON.stringify({ paidAmount }),
       })
       const x = (await r.json()) as Api<Invoice>
       if (!r.ok || !x.success || !x.data) throw new Error(x.message || "Payment update failed.")
       setInvoices((c) => c.map((i) => (i._id === x.data!._id ? x.data! : i)))
       setSelected(x.data)
+      setPaid(String(x.data.paidAmount || 0))
       showToast("Invoice payment updated.", "success")
     } catch (e) {
       showToast(e instanceof Error ? e.message : "Payment update failed.", "error")
@@ -127,118 +155,34 @@ export default function InvoiceManagementPage() {
           ? "bg-slate-200 text-slate-600"
           : "bg-indigo-100 text-indigo-700"
 
-  const downloadPDF = (invoice: Invoice) => {
+  const downloadPDF = async (invoice: Invoice) => {
     try {
       const element = document.getElementById(`invoice-${invoice._id}`)
-      if (!element) {
-        showToast("Invoice element not found", "error")
-        return
-      }
-
-      const printWindow = window.open("", "", "height=800,width=900")
-      if (!printWindow) {
-        showToast("Failed to open print window", "error")
-        return
-      }
-
-      const htmlContent = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <style>
-            * { margin: 0; padding: 0; box-sizing: border-box; }
-            body { font-family: Arial, sans-serif; font-size: 12px; color: #333; }
-            .invoice-container { padding: 20px; }
-            table { border-collapse: collapse; }
-            th, td { border: 1px solid #000; padding: 8px; text-align: left; }
-            th { background-color: #f0f0f0; font-weight: bold; }
-            .text-right { text-align: right; }
-            .text-center { text-align: center; }
-          </style>
-        </head>
-        <body onload="window.print(); window.close();">
-          <div class="invoice-container">
-            ${element.innerHTML}
-          </div>
-        </body>
-        </html>
-      `
-
-      printWindow.document.write(htmlContent)
-      printWindow.document.close()
-      showToast("Invoice PDF ready to download", "success")
-    } catch (e) {
-      console.error("PDF Download Error:", e)
-      showToast("Failed to download PDF", "error")
-    }
+      if (!element) return showToast("Invoice element not found", "error")
+      const html2pdf = (await import("html2pdf.js")).default
+      await html2pdf().set({ margin:[52,14,8,14], filename:`Invoice-${invoice.invoiceNumber}.pdf`, image:{type:"png",quality:1}, html2canvas:{scale:4,useCORS:true,backgroundColor:"#ffffff",logging:false}, jsPDF:{unit:"mm",format:"a4",orientation:"portrait"} }).from(element).save()
+      showToast("Invoice PDF downloaded", "success")
+    } catch (e) { console.error("PDF Download Error:",e); showToast("Failed to download PDF","error") }
   }
-
   const downloadExcel = async (invoice: Invoice) => {
     try {
-      const XLSX = await import("xlsx")
-      const ws_data = [
-        ["INVOICE"],
-        [],
-        ["Bill Month:- May 2026", "", "Bill Period: " + date.format(new Date(invoice.billingFrom)) + " to " + date.format(new Date(invoice.billingTo))],
-        ["AL Gosar Enterprises", "", "Invoice No. GST/" + invoice.invoiceNumber, "", "Date: " + date.format(new Date(invoice.issueDate))],
-        ["Bairagi Colony , Ward No.10 , Pithampur", "", "", "", "Mode / Terms of Payment"],
-        ["Dist: Dhar (M.P.) 454775", "", "Deliver Note", "", "Dated"],
-        ["GST No. " + (invoice.supplierGstNumber || "23CFVPG6126B1ZN"), "", "Supplier's Ref.", "", "422045"],
-        ["PAN No: CFVPG6126B", "", "Vender Code", "", "Buyer's order No."],
-        ["State: Madhya Pradesh", "", "", "", "Destination: PITHAMPUR"],
-        ["E- Mail: gosarenterprise8@gmail.com", "", "LUT No.", "", "AD23042501320 3T"],
-        [],
-        ["Buyers & Consignee", "", "Terms Of Delivery :- 10 days after invoice"],
-        [invoice.clientName],
-        [invoice.siteName],
-        ["GST No. " + (invoice.buyerGstNumber || "N/A")],
-        ["State Code: " + (invoice.buyerGstNumber ? invoice.buyerGstNumber.substring(0, 2) : "N/A")],
-        [],
-        ["S.No.", "Description of Goods", "HSN / SAC", "Quantity", "Rate", "Per", "Amount"],
-        ...invoice.lines.map((l, idx) => [
-          idx + 1,
-          l.description,
-          l.hsnSacCode || "-",
-          l.quantity || "-",
-          l.rate,
-          "-",
-          l.amount,
-        ]),
-        [],
-        ["", "", "", "", "", "TOTAL AMOUNT", invoice.totalAmount],
-        ["", "", "", "", "", "NET PAYBLE AMOUNT", invoice.totalAmount],
-        [],
-        ["Amount Chargeble in ( Words )", "Amount in words would be shown here"],
-        [],
-        ["Declaration"],
-        ["Supply & service MEANT for Export/Supply to SEZ Developer for authorised operations under bond or letter undertaking without payment of IGST AD23042501320 3T Dated :-22/04/2025 Valid till :-31/03/2026"],
-        [],
-        ["Remarks", "", "For :- AL Gosar Enterprises"],
-        ["AL Gosar Enterprises", "", ""],
-        ["Bank Details :-"],
-        ["Account Name : A.L Gosar Enterprises"],
-        ["Account No : 5020004929512"],
-        ["IFSC Code : HDFC0001291"],
-        ["Branch : Pithampur"],
-        [],
-        ["", "", "Authorised Signatory"],
-        [],
-        ["Payment Information"],
-        ["Paid Amount", invoice.paidAmount],
-        ["Balance Amount", invoice.balanceAmount],
-        ["Status", invoice.status],
-      ]
-      const ws = XLSX.utils.aoa_to_sheet(ws_data)
-      const wb = XLSX.utils.book_new()
-      XLSX.utils.book_append_sheet(wb, ws, "Invoice")
-      XLSX.writeFile(wb, `Invoice-${invoice.invoiceNumber}.xlsx`)
-      showToast("Invoice downloaded as Excel", "success")
+      const response = await fetch(apiUrl(`/site-invoices/${invoice._id}/excel`), { credentials: "include" })
+      if (!response.ok) { const error = await response.json().catch(() => ({})); throw new Error(error.message || "Excel export failed") }
+      const blob = await response.blob()
+      const url = URL.createObjectURL(blob)
+      const anchor = document.createElement("a")
+      anchor.href = url
+      anchor.download = `Invoice-${invoice.invoiceNumber}.xlsx`
+      document.body.appendChild(anchor)
+      anchor.click()
+      anchor.remove()
+      URL.revokeObjectURL(url)
+      showToast("Formatted invoice downloaded as Excel", "success")
     } catch (e) {
       console.error("Excel Download Error:", e)
-      showToast("Failed to download Excel", "error")
+      showToast(e instanceof Error ? e.message : "Failed to download Excel", "error")
     }
   }
-
   return (
     <div className="flex h-screen overflow-hidden bg-[#f7f8fc]">
       <Sidebar />
@@ -366,14 +310,12 @@ export default function InvoiceManagementPage() {
                   <button
                     onClick={() => downloadPDF(selected)}
                     className="flex-1 rounded bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700"
-                  >
-                    📥 Download PDF
+                  >                    Download PDF
                   </button>
                   <button
                     onClick={() => downloadExcel(selected)}
                     className="flex-1 rounded bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700"
-                  >
-                    📥 Download Excel
+                  >                    Download Excel
                   </button>
                   <button
                     onClick={() => setSelected(null)}
@@ -383,72 +325,60 @@ export default function InvoiceManagementPage() {
                   </button>
                 </div>
 
+                <section className="mb-4 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <h2 className="text-base font-bold text-slate-900">Site Payment Tracking</h2>
+                      <p className="text-xs text-slate-500">This is only for payment management and is not included in the PDF invoice.</p>
+                    </div>
+                    <span className={`rounded-full px-3 py-1 text-xs font-bold ${badge(selected.status)}`}>{selected.status.replaceAll("_", " ")}</span>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <div className="rounded border border-slate-200 bg-slate-50 p-3"><div className="text-xs text-slate-500">Invoice Total</div><div className="mt-1 font-bold text-slate-900">{money.format(selected.totalAmount)}</div></div>
+                    <div className="rounded border border-emerald-200 bg-emerald-50 p-3"><div className="text-xs text-emerald-700">Received</div><div className="mt-1 font-bold text-emerald-800">{money.format(selected.paidAmount || 0)}</div></div>
+                    <div className="rounded border border-red-200 bg-red-50 p-3"><div className="text-xs text-red-700">Outstanding</div><div className="mt-1 font-bold text-red-700">{money.format(selected.balanceAmount || 0)}</div></div>
+                  </div>
+                  <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-end">
+                    <label className="flex-1 text-sm font-semibold text-slate-700">Total payment received from site
+                      <input type="number" min="0" max={selected.totalAmount} step="0.01" value={paid} onChange={(e) => setPaid(e.target.value)} disabled={selected.status === "CANCELLED"} className="mt-1 w-full rounded border border-slate-300 px-3 py-2 font-normal outline-none focus:border-indigo-500" placeholder="0.00" />
+                    </label>
+                    <button type="button" onClick={updatePayment} disabled={saving || selected.status === "CANCELLED"} className="rounded bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50">
+                      {saving ? "Updating..." : "Update Received Payment"}
+                    </button>
+                  </div>
+                </section>
+
                 <div
-                  className="bg-white shadow-2xl overflow-hidden"
+                  className="bg-white"
                   id={`invoice-${selected._id}`}
                   style={{
-                    border: "1px solid #000",
-                    padding: "20px",
+                    border: "none",
+                    padding: "0",
                     fontFamily: "Arial, sans-serif",
                     fontSize: "12px",
                     lineHeight: "1.4",
                     pageBreakAfter: "avoid",
+                    pageBreakInside: "avoid",
                   }}
                 >
-                  {/* Header */}
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "20px", marginBottom: "15px", borderBottom: "1px solid #000", paddingBottom: "10px" }}>
-                    <div style={{ fontSize: "11px" }}>
-                      <div style={{ fontWeight: "bold", marginBottom: "5px" }}>Bill Month :- May 2026</div>
-                      <div style={{ fontWeight: "bold" }}>AL Gosar Enterprises</div>
-                      <div>Bairagi Colony , Ward No.10 , Pithampur</div>
-                      <div>Dist : Dhar ( M.P.) 454775</div>
-                      <div style={{ marginTop: "5px" }}>GST No. {selected.supplierGstNumber || "23CFVPG6126B1ZN"}</div>
-                      <div>PAN No: CFVPG6126B</div>
-                      <div>State : Madhya Pradesh</div>
-                      <div>E- Mail : gosarenterprise8@gmail.com</div>
-                    </div>
-                    <div></div>
-                    <div style={{ fontSize: "11px", textAlign: "right" }}>
-                      <div style={{ marginBottom: "10px", fontWeight: "bold" }}>Bill Period : {date.format(new Date(selected.billingFrom))} to {date.format(new Date(selected.billingTo))}</div>
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
-                        <div style={{ textAlign: "left" }}>
-                          <div style={{ fontWeight: "bold" }}>Invoice No. GST/{selected.invoiceNumber}</div>
-                          <div>Deliver Note</div>
-                          <div style={{ marginTop: "5px" }}>Supplier's Ref.</div>
-                          <div>Vender Code</div>
-                          <div>Buyer's order No.</div>
-                          <div style={{ marginTop: "5px" }}>LUT No.</div>
-                        </div>
-                        <div>
-                          <div>Date : {date.format(new Date(selected.issueDate))}</div>
-                          <div>Mode / Terms of Payment</div>
-                          <div style={{ marginTop: "5px" }}>Dated</div>
-                          <div>422045</div>
-                          <div>Destination : PITHAMPUR</div>
-                          <div style={{ marginTop: "5px" }}>AD23042501320 3T</div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Buyers & Consignee */}
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px", marginBottom: "15px", borderBottom: "1px solid #000", paddingBottom: "10px", fontSize: "11px" }}>
-                    <div>
-                      <div style={{ fontWeight: "bold", marginBottom: "5px" }}>Buyers & Consignee</div>
-                      <div style={{ fontWeight: "bold" }}>{selected.clientName}</div>
-                      <div>{selected.siteName}</div>
-                      <div style={{ marginTop: "5px" }}>GST No. {selected.buyerGstNumber || "N/A"}</div>
-                      <div>State Code :{selected.buyerGstNumber ? selected.buyerGstNumber.substring(0, 2) : "N/A"}</div>
-                    </div>
-                    <div>
-                      <div style={{ fontWeight: "bold", marginBottom: "5px" }}>Terms Of Delivery :- 10 days after invoice</div>
-                    </div>
-                  </div>
-
+                  <table style={{width:"100%",borderCollapse:"collapse",tableLayout:"fixed",fontSize:"12px",color:"#000"}}>
+                    <colgroup><col style={{width:"40%"}}/><col style={{width:"24%"}}/><col style={{width:"36%"}}/></colgroup>
+                    <tbody>
+                      <tr><th colSpan={3} style={{border:"1px solid #000",padding:"5px",fontSize:"20px",lineHeight:"24px",textAlign:"center",fontWeight:"bold"}}>Invoice</th></tr>
+                      <tr><td colSpan={2} style={{border:"1px solid #000",padding:"4px",fontWeight:"bold"}}>Bill Month :- {billMonth(selected.billingFrom)}</td><td style={{border:"1px solid #000",padding:"4px",fontWeight:"bold",whiteSpace:"nowrap"}}>Bill Period : {invoiceDate(selected.billingFrom)} to {invoiceDate(selected.billingTo)}</td></tr>
+                      <tr><td rowSpan={6} style={{border:"1px solid #000",padding:"4px",verticalAlign:"top",lineHeight:"1.65"}}><strong>AL Gosar Enterprises</strong><br/>Bairagi Colony , Ward No.10 , Pithampur<br/>Dist : Dhar ( M.P.) 454775<br/>GST No. {selected.supplierGstNumber || "23CFVPG6126B1ZN"}<br/>PAN No: CFVPG6126B<br/>State : Madhya Pradesh<br/>E- Mail : gosarenterprises8@gmail.com</td><td style={{border:"1px solid #000",padding:"3px",whiteSpace:"nowrap",overflow:"hidden",fontSize:`${invoiceNumberSize(selected.invoiceNumber)}px`,letterSpacing:"-0.2px",fontWeight:"bold"}}>Invoice No. GST/{compactInvoiceNumber(selected.invoiceNumber)}</td><td style={{border:"1px solid #000",padding:"3px",whiteSpace:"nowrap"}}>Date : {invoiceDate(selected.issueDate)}</td></tr>
+                      <tr><td style={{border:"1px solid #000",padding:"3px"}}>Deliver Note</td><td style={{border:"1px solid #000",padding:"3px"}}>Mode / Terms of Payment</td></tr>
+                      <tr><td style={{border:"1px solid #000",padding:"3px"}}>Supplier&apos;s Ref.</td><td style={{border:"1px solid #000",padding:"3px"}}>Dated</td></tr>
+                      <tr><td style={{border:"1px solid #000",padding:"3px"}}>Vender Code</td><td style={{border:"1px solid #000",padding:"3px"}}>422045</td></tr>
+                      <tr><td style={{border:"1px solid #000",padding:"3px"}}>Buyer&apos;s order No.</td><td style={{border:"1px solid #000",padding:"3px",whiteSpace:"nowrap"}}>Destination : PITHAMPUR</td></tr>
+                      <tr><td style={{border:"1px solid #000",padding:"3px"}}>LUT No.</td><td style={{border:"1px solid #000",padding:"3px"}}>AD230425013203T</td></tr>
+                      <tr><td style={{border:"1px solid #000",padding:"4px",verticalAlign:"top",lineHeight:"1.65"}}><strong>Buyers &amp; Consignee</strong><br/><strong>{selected.clientName}</strong><br/>{selected.siteName}<br/>GSTIN : {selected.buyerGstNumber || "N/A"}</td><td colSpan={2} style={{border:"1px solid #000",padding:"4px",verticalAlign:"top"}}>Terms Of Delivery :- 10 days after invoice</td></tr>
+                    </tbody>
+                  </table>
                   {/* Items Table */}
-                  <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "15px", fontSize: "11px" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "0", fontSize: "12px" }}>
                     <thead>
-                      <tr style={{ backgroundColor: "#f0f0f0", borderTop: "1px solid #000", borderBottom: "1px solid #000" }}>
+                      <tr style={{ backgroundColor: "#fff", borderTop: "1px solid #000", borderBottom: "1px solid #000" }}>
                         <th style={{ border: "1px solid #000", padding: "8px", textAlign: "left", fontWeight: "bold" }}>S.No.</th>
                         <th style={{ border: "1px solid #000", padding: "8px", textAlign: "left", fontWeight: "bold" }}>Description of Goods</th>
                         <th style={{ border: "1px solid #000", padding: "8px", textAlign: "center", fontWeight: "bold" }}>HSN / SAC</th>
@@ -470,42 +400,30 @@ export default function InvoiceManagementPage() {
                           <td style={{ border: "1px solid #000", padding: "8px", textAlign: "right", fontWeight: "bold" }}>{l.amount}</td>
                         </tr>
                       ))}
+                      <tr><td colSpan={6} style={{border:"1px solid #000",padding:"6px",textAlign:"right",fontWeight:"bold"}}>AMOUNT</td><td style={{border:"1px solid #000",padding:"6px",textAlign:"right",fontWeight:"bold"}}>{invoiceAmount.format(selected.baseAmount)}</td></tr>
+                      {selected.serviceChargeAmount>0&&<tr><td colSpan={6} style={{border:"1px solid #000",padding:"6px",textAlign:"right"}}>Service Charges {selected.serviceChargePercent}%</td><td style={{border:"1px solid #000",padding:"6px",textAlign:"right"}}>{invoiceAmount.format(selected.serviceChargeAmount)}</td></tr>}
+                      {selected.adjustmentAmount!==0&&<tr><td colSpan={6} style={{border:"1px solid #000",padding:"6px",textAlign:"right"}}>Adjustment</td><td style={{border:"1px solid #000",padding:"6px",textAlign:"right"}}>{invoiceAmount.format(selected.adjustmentAmount)}</td></tr>}
+                      <tr><td colSpan={6} style={{border:"1px solid #000",padding:"6px",textAlign:"right",fontWeight:"bold"}}>Total Amount</td><td style={{border:"1px solid #000",padding:"6px",textAlign:"right",fontWeight:"bold"}}>{invoiceAmount.format(selected.taxableAmount)}</td></tr>
+                      {(selected.cgstAmount??0)>0&&<tr><td colSpan={6} style={{border:"1px solid #000",padding:"6px",textAlign:"right"}}>CGST {selected.cgstPercent??0}%</td><td style={{border:"1px solid #000",padding:"6px",textAlign:"right"}}>{invoiceAmount.format(selected.cgstAmount??0)}</td></tr>}
+                      {(selected.sgstAmount??0)>0&&<tr><td colSpan={6} style={{border:"1px solid #000",padding:"6px",textAlign:"right"}}>SGST {selected.sgstPercent??0}%</td><td style={{border:"1px solid #000",padding:"6px",textAlign:"right"}}>{invoiceAmount.format(selected.sgstAmount??0)}</td></tr>}
+                      <tr><td colSpan={6} style={{border:"1px solid #000",padding:"7px",textAlign:"right",fontWeight:"bold"}}>NET PAYABLE AMOUNT</td><td style={{border:"1px solid #000",padding:"7px",textAlign:"right",fontWeight:"bold"}}>{invoiceAmount.format(selected.totalAmount)}</td></tr>
                     </tbody>
                   </table>
 
-                  {/* Totals */}
-                  <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "10px", marginBottom: "15px", fontSize: "12px", fontWeight: "bold" }}>
-                    <div></div>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", borderTop: "1px solid #000", paddingTop: "5px" }}>
-                      <div style={{ textAlign: "right", paddingRight: "10px" }}>TOTAL AMOUNT</div>
-                      <div style={{ textAlign: "right", paddingRight: "10px" }}>{selected.totalAmount}</div>
-                    </div>
-                  </div>
-                  <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "10px", marginBottom: "15px", fontSize: "12px", fontWeight: "bold", borderTop: "1px solid #000", paddingTop: "5px" }}>
-                    <div></div>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
-                      <div style={{ textAlign: "right", paddingRight: "10px" }}>NET PAYBLE AMOUNT</div>
-                      <div style={{ textAlign: "right", paddingRight: "10px" }}>{selected.totalAmount}</div>
-                    </div>
-                  </div>
-
                   {/* Amount in Words */}
-                  <div style={{ marginBottom: "15px", borderTop: "1px solid #000", paddingTop: "8px", fontSize: "11px" }}>
+                  <div style={{ border: "1px solid #000", borderTop: "0", padding: "7px 3px", fontSize: "12px" }}>
                     <div style={{ fontWeight: "bold", marginBottom: "3px" }}>Amount Chargeble in ( Words )</div>
-                    <div style={{ fontStyle: "italic" }}>Amount in words would be shown here</div>
+                    <div style={{ fontWeight: "bold" }}>{amountInWords(selected.totalAmount)}</div>
                   </div>
 
                   {/* Declaration */}
-                  <div style={{ marginBottom: "15px", borderTop: "1px solid #000", borderBottom: "1px solid #000", padding: "8px", fontSize: "11px", backgroundColor: "#fafafa" }}>
-                    <div style={{ textAlign: "center", fontWeight: "bold", marginBottom: "5px" }}>Declaration</div>
-                    <div style={{ textAlign: "center", fontSize: "10px" }}>
-                      Supply & service MEANT for Export/Supply to SEZ Developer for authorised operations under bond or letter undertaking without payment of IGST AD23042501320 3T Dated :-22/04/2025 Valid till :-31/03/2026
-                    </div>
-                  </div>
-
+                  {selected.declarationEnabled!==false&&<div style={{ border: "1px solid #000", borderTop: "0", padding: "6px 8px", fontSize: "12px", backgroundColor: "#fff" }}>
+                    <div style={{ textAlign: "center", fontWeight: "bold", textDecoration:"underline", fontSize:"16px", marginBottom: "5px" }}>Declaration</div>
+                    <div style={{ textAlign: "center", fontSize: "11px", lineHeight:"1.35", whiteSpace:"pre-wrap" }}>{selected.declarationText||"Supply & service MEANT for Export/Supply to SEZ Developer for authorised operations under bond or letter undertaking without payment of IGST AD230425013203T Dated :-22/04/2025 Valid till :-31/03/2026"}</div>
+                  </div>}
                   {/* Remarks & Bank Details */}
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "15px", marginBottom: "15px", fontSize: "11px" }}>
-                    <div>
+                  <div style={{ display: "grid", gridTemplateColumns: "55% 45%", alignItems:"stretch", border:"1px solid #000", borderTop:"0", fontSize: "12px", overflow:"visible" }}>
+                    <div style={{display:"flex",flexDirection:"column",justifyContent:"center",minHeight:"130px",padding:"8px 8px 12px",lineHeight:"1.5",boxSizing:"border-box"}}>
                       <div style={{ fontWeight: "bold", marginBottom: "5px" }}>Remarks</div>
                       <div>AL Gosar Enterprises</div>
                       <div style={{ marginTop: "8px", fontWeight: "bold" }}>Bank Details :-</div>
@@ -514,51 +432,14 @@ export default function InvoiceManagementPage() {
                       <div>IFSC Code : HDFC0001291</div>
                       <div>Branch : Pithampur</div>
                     </div>
-                    <div style={{ textAlign: "right" }}>
-                      <div style={{ fontWeight: "bold", marginBottom: "20px" }}>For :- AL Gosar Enterprises</div>
-                      <div style={{ height: "40px" }}></div>
+                    <div style={{ display:"flex", flexDirection:"column", justifyContent:"space-between", alignItems:"flex-end", minHeight:"130px", textAlign:"right", padding:"10px 12px 12px 4px", lineHeight:"1.5", boxSizing:"border-box" }}>
+                      <div style={{ fontWeight: "bold" }}>For :- AL Gosar Enterprises</div>
+                      <div style={{ flex:"1" }}></div>
                       <div style={{ fontWeight: "bold" }}>Authorised Signatory</div>
                     </div>
                   </div>
                 </div>
 
-                {/* Payment Info Section Below */}
-                <div style={{ padding: "20px", backgroundColor: "white", marginTop: "20px", borderRadius: "8px", boxShadow: "0 1px 3px rgba(0,0,0,0.1)" }}>
-                  <h3 style={{ fontWeight: "bold", marginBottom: "15px", fontSize: "14px" }}>Payment Information</h3>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "15px", marginBottom: "15px" }}>
-                    <div style={{ padding: "15px", backgroundColor: "#d1fae5", borderRadius: "8px", fontSize: "12px" }}>
-                      <div style={{ color: "#047857", fontWeight: "bold", marginBottom: "5px" }}>Paid Amount</div>
-                      <div style={{ fontSize: "18px", fontWeight: "bold", color: "#065f46" }}>{money.format(selected.paidAmount)}</div>
-                    </div>
-                    <div style={{ padding: "15px", backgroundColor: "#fee2e2", borderRadius: "8px", fontSize: "12px" }}>
-                      <div style={{ color: "#991b1b", fontWeight: "bold", marginBottom: "5px" }}>Balance Amount</div>
-                      <div style={{ fontSize: "18px", fontWeight: "bold", color: "#7f1d1d" }}>{money.format(selected.balanceAmount)}</div>
-                    </div>
-                    <div style={{ padding: "15px", backgroundColor: "#e0e7ff", borderRadius: "8px", fontSize: "12px" }}>
-                      <div style={{ color: "#3730a3", fontWeight: "bold", marginBottom: "5px" }}>Status</div>
-                      <div style={{ fontSize: "14px", fontWeight: "bold" }}>{selected.status}</div>
-                    </div>
-                  </div>
-                  <div style={{ marginTop: "15px" }}>
-                    <label style={{ display: "block", fontSize: "12px", fontWeight: "bold", marginBottom: "8px" }}>Record Payment</label>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: "10px" }}>
-                      <input
-                        type="number"
-                        value={paid}
-                        onChange={(e) => setPaid(e.target.value)}
-                        style={{ padding: "8px", border: "1px solid #d1d5db", borderRadius: "4px", fontSize: "12px" }}
-                        placeholder="Enter payment amount"
-                      />
-                      <button
-                        onClick={updatePayment}
-                        disabled={saving}
-                        style={{ padding: "8px 20px", backgroundColor: "#4f46e5", color: "white", border: "none", borderRadius: "4px", fontWeight: "bold", cursor: "pointer", fontSize: "12px", opacity: saving ? 0.5 : 1 }}
-                      >
-                        {saving ? "Updating..." : "Update"}
-                      </button>
-                    </div>
-                  </div>
-                </div>
               </div>
             </div>
           )}
@@ -567,3 +448,4 @@ export default function InvoiceManagementPage() {
     </div>
   )
 }
+

@@ -27,8 +27,9 @@ export default function RootLayout({
     <html
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
-      <body className="min-h-full flex flex-col"><ToastProvider>{children}</ToastProvider></body>
+      <body className="min-h-full flex flex-col"><script dangerouslySetInnerHTML={{ __html: "try { const dark = localStorage.getItem(\u0027kinetic-theme\u0027) === \u0027dark\u0027; document.documentElement.classList.toggle(\u0027dark\u0027, dark); document.documentElement.dataset.theme = dark ? \u0027dark\u0027 : \u0027light\u0027 } catch {}" }} /><ToastProvider>{children}</ToastProvider></body>
     </html>
   );
 }

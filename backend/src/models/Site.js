@@ -1,4 +1,4 @@
-const mongoose = require("mongoose");
+﻿const mongoose = require("mongoose");
 
 const siteSchema = new mongoose.Schema(
   {
@@ -61,6 +61,14 @@ const siteSchema = new mongoose.Schema(
       default: "",
     },
 
+    addressLine: { type: String, trim: true, default: "" },
+    city: { type: String, trim: true, default: "" },
+    district: { type: String, trim: true, default: "" },
+    state: { type: String, trim: true, default: "" },
+    pincode: { type: String, trim: true, default: "", match: [/^\d{0,6}$/, "PIN code must contain up to 6 digits"] },
+    billingCycleStartDay: { type: Number, default: 1, min: 1, max: 31 },
+    billingCycleEndDay: { type: Number, default: 0, min: 0, max: 31 },
+
     projectValue: {
       type: Number,
       required: true,
@@ -98,3 +106,4 @@ const siteSchema = new mongoose.Schema(
 );
 
 module.exports = mongoose.model("Site", siteSchema);
+
