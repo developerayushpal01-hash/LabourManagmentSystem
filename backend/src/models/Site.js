@@ -54,6 +54,13 @@ const siteSchema = new mongoose.Schema(
       match: [/^[^\s@]+@[^\s@]+\.[^\s@]+$/, "Enter a valid contact email"],
     },
 
+    clientGstNumber: {
+      type: String,
+      trim: true,
+      uppercase: true,
+      default: "",
+    },
+
     projectValue: {
       type: Number,
       required: true,

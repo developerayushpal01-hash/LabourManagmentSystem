@@ -2,6 +2,7 @@ const Attendance = require("../models/Attendance");
 const Site = require("../models/Site");
 const SiteInvoice = require("../models/SiteInvoice");
 const PayrollSetting = require("../models/PayrollSetting");
+const Company = require("../models/Company");
 
 const contractorIdOf = (user) => user.role === "CONTRACTOR" ? user._id : user.parentUserId;
 const round = (value) => Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100;
@@ -24,7 +25,7 @@ const nextInvoiceNumber = async (req) => {
   return `${prefix}${String(lastSequence + 1).padStart(2, "0")}`;
 };
 
-const buildPreview = async (req, { siteId, billingFrom, billingTo }) => {
+const buildPreview = async (req, { siteId, billingFrom, billingTo, hsnSacCode, quantity }) => {
   if (!siteId || !validDate(billingFrom) || !validDate(billingTo)) throw Object.assign(new Error("Site, billing from and billing to dates are required"), { statusCode: 400 });
   const start = new Date(billingFrom); start.setHours(0, 0, 0, 0);
   const end = new Date(billingTo); end.setHours(23, 59, 59, 999);
@@ -49,27 +50,123 @@ const buildPreview = async (req, { siteId, billingFrom, billingTo }) => {
     line.overtimeHours += hours;
     line.overtimeAmount += entry.overtimeAmount == null ? hours * Number(entry.overtimeRate ?? overtimeRate) : Number(entry.overtimeAmount || 0);
   });
-  const lines = [...map.values()].map((line) => ({ ...line, labourAmount: round(line.labourAmount), overtimeHours: round(line.overtimeHours), overtimeAmount: round(line.overtimeAmount), totalAmount: round(line.labourAmount + line.overtimeAmount) }));
-  return { site, billingFrom: start, billingTo: end, attendanceCount: attendance.length, labourCount: lines.length, lines, baseAmount: round(lines.reduce((sum, line) => sum + line.totalAmount, 0)) };
+  const labourDetails = [...map.values()].map((line) => ({ ...line, labourAmount: round(line.labourAmount), overtimeHours: round(line.overtimeHours), overtimeAmount: round(line.overtimeAmount), totalAmount: round(line.labourAmount + line.overtimeAmount) }));
+  const baseAmount = round(labourDetails.reduce((sum, line) => sum + line.totalAmount, 0));
+  
+  // Create single line item for Man power supply
+  const lines = [{
+    description: "Man power supply",
+    hsnSacCode: hsnSacCode || "",
+    quantity: Number(quantity || 0),
+    rate: baseAmount,
+    amount: baseAmount,
+  }];
+  
+  return { site, billingFrom: start, billingTo: end, attendanceCount: attendance.length, labourCount: labourDetails.length, labourDetails, lines, baseAmount };
 };
 
 const previewInvoice = async (req, res) => {
-  try { const [preview, invoiceNumber] = await Promise.all([buildPreview(req, req.query), nextInvoiceNumber(req)]); return res.json({ success: true, data: { ...preview, invoiceNumber } }); }
-  catch (error) { return res.status(error.statusCode || 500).json({ success: false, message: error.message }); }
+  try {
+    const [preview, invoiceNumber, company] = await Promise.all([
+      buildPreview(req, req.query),
+      nextInvoiceNumber(req),
+      Company.findOne({ _id: req.user.companyId }),
+    ]);
+    
+    const supplierGst = company?.gstNumber || "";
+    const buyerGst = preview.site.clientGstNumber || "";
+    const defaultGstPercent = Number(req.query.gstPercent != null ? req.query.gstPercent : 18);
+    
+    return res.json({
+      success: true,
+      data: {
+        site: preview.site,
+        billingFrom: preview.billingFrom,
+        billingTo: preview.billingTo,
+        invoiceNumber,
+        attendanceCount: preview.attendanceCount,
+        labourCount: preview.labourCount,
+        labourDetails: preview.labourDetails,
+        lines: preview.lines,
+        baseAmount: preview.baseAmount,
+        supplierGstNumber: supplierGst,
+        buyerGstNumber: buyerGst,
+        defaultGstPercent,
+      },
+    });
+  } catch (error) {
+    return res.status(error.statusCode || 500).json({ success: false, message: error.message });
+  }
 };
 
 const createInvoice = async (req, res) => {
   try {
-    const preview = await buildPreview(req, req.body);
-    if (!preview.lines.length) return res.status(400).json({ success: false, message: "No attendance records found for this site and period" });
-    const serviceChargePercent = Number(req.body.serviceChargePercent || 0), gstPercent = Number(req.body.gstPercent ?? 18), adjustmentAmount = Number(req.body.adjustmentAmount || 0);
-    if (![serviceChargePercent, gstPercent, adjustmentAmount].every(Number.isFinite) || serviceChargePercent < 0 || serviceChargePercent > 100 || gstPercent < 0 || gstPercent > 100) return res.status(400).json({ success: false, message: "Invalid service charge, GST or adjustment" });
+    const preview = await buildPreview(req, {
+      siteId: req.body.siteId,
+      billingFrom: req.body.billingFrom,
+      billingTo: req.body.billingTo,
+      hsnSacCode: req.body.hsnSacCode,
+      quantity: req.body.quantity,
+    });
+    if (!preview.labourDetails.length) return res.status(400).json({ success: false, message: "No attendance records found for this site and period" });
+    
+    // Fetch company details to get GST
+    const company = await Company.findOne({ _id: req.user.companyId });
+    if (!company) return res.status(404).json({ success: false, message: "Company not found" });
+    
+    const supplierGst = company.gstNumber || "";
+    const buyerGst = preview.site.clientGstNumber || "";
+    const companyName = company.companyName || "";
+    const companyAddress = `${company.address?.street || ""}, ${company.address?.city || ""}, ${company.address?.state || ""} ${company.address?.pincode || ""}`.trim();
+    
+    // Use company GST rate as default, allow override in request body
+    const gstPercent = Number(req.body.gstPercent != null ? req.body.gstPercent : 18);
+    const serviceChargePercent = Number(req.body.serviceChargePercent || 0);
+    const adjustmentAmount = Number(req.body.adjustmentAmount || 0);
+    
+    if (![serviceChargePercent, gstPercent, adjustmentAmount].every(Number.isFinite) || serviceChargePercent < 0 || serviceChargePercent > 100 || gstPercent < 0 || gstPercent > 100) {
+      return res.status(400).json({ success: false, message: "Invalid service charge, GST or adjustment" });
+    }
+    
     const serviceChargeAmount = round(preview.baseAmount * serviceChargePercent / 100);
     const taxableAmount = round(Math.max(preview.baseAmount + serviceChargeAmount + adjustmentAmount, 0));
-    const gstAmount = round(taxableAmount * gstPercent / 100), totalAmount = round(taxableAmount + gstAmount);
+    const gstAmount = round(taxableAmount * gstPercent / 100);
+    const totalAmount = round(taxableAmount + gstAmount);
+    
     const invoiceNumber = await nextInvoiceNumber(req);
     const dueDate = validDate(req.body.dueDate) ? new Date(req.body.dueDate) : new Date(Date.now() + 15 * 86400000);
-    const invoice = await SiteInvoice.create({ ...scope(req), isDeleted: false, invoiceNumber, siteId: preview.site._id, siteName: preview.site.siteName, siteCode: preview.site.siteCode, clientName: preview.site.clientName, billingFrom: preview.billingFrom, billingTo: preview.billingTo, dueDate, lines: preview.lines, baseAmount: preview.baseAmount, serviceChargePercent, serviceChargeAmount, adjustmentAmount: round(adjustmentAmount), taxableAmount, gstPercent, gstAmount, totalAmount, paidAmount: 0, balanceAmount: totalAmount, status: req.body.status === "DRAFT" ? "DRAFT" : "ISSUED", notes: req.body.notes || "", createdBy: req.user._id });
+    
+    const invoice = await SiteInvoice.create({
+      ...scope(req),
+      isDeleted: false,
+      invoiceNumber,
+      siteId: preview.site._id,
+      siteName: preview.site.siteName,
+      siteCode: preview.site.siteCode,
+      clientName: preview.site.clientName,
+      billingFrom: preview.billingFrom,
+      billingTo: preview.billingTo,
+      dueDate,
+      lines: preview.lines,
+      baseAmount: preview.baseAmount,
+      serviceChargePercent,
+      serviceChargeAmount,
+      adjustmentAmount: round(adjustmentAmount),
+      taxableAmount,
+      gstPercent,
+      gstAmount,
+      totalAmount,
+      paidAmount: 0,
+      balanceAmount: totalAmount,
+      status: req.body.status === "DRAFT" ? "DRAFT" : "ISSUED",
+      notes: req.body.notes || "",
+      supplierGstNumber: supplierGst,
+      buyerGstNumber: buyerGst,
+      companyName,
+      companyAddress,
+      createdBy: req.user._id,
+    });
+    
     return res.status(201).json({ success: true, message: "Site invoice created successfully", data: invoice });
   } catch (error) {
     if (error.code === 11000) return res.status(409).json({ success: false, message: "Invoice number conflict, please try again" });
