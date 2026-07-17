@@ -1,0 +1,20 @@
+const express = require("express");
+const router = express.Router();
+const controller = require("../controllers/salaryController");
+const { downloadSalarySlipPdf } = require("../controllers/salarySlipPdfController");
+const { verifyToken } = require("../middlewares/auth.middleware");
+const { authorizeRoles } = require("../middlewares/role.middleware");
+
+router.get("/calculate", verifyToken, authorizeRoles("CONTRACTOR", "ACCOUNTANT"), controller.previewAllSalaries);
+router.post("/calculate", verifyToken, authorizeRoles("CONTRACTOR", "ACCOUNTANT"), controller.calculateSalary);
+router.get("/summary", verifyToken, authorizeRoles("CONTRACTOR", "ACCOUNTANT"), controller.getSalarySummary);
+router.get("/labour/:labourId", verifyToken, authorizeRoles("CONTRACTOR", "ACCOUNTANT"), controller.calculateLabourSalary);
+router.post("/generate-slip", verifyToken, authorizeRoles("CONTRACTOR", "ACCOUNTANT"), controller.generateSalarySlip);
+router.post("/generate-slips", verifyToken, authorizeRoles("CONTRACTOR", "ACCOUNTANT"), controller.generateAllSalarySlips);
+router.post("/pay", verifyToken, authorizeRoles("CONTRACTOR", "ACCOUNTANT"), controller.paySalary);
+router.get("/slip/:id/pdf", verifyToken, authorizeRoles("CONTRACTOR", "ACCOUNTANT"), downloadSalarySlipPdf);
+router.get("/", verifyToken, authorizeRoles("CONTRACTOR", "ACCOUNTANT"), controller.getSalaries);
+router.get("/:id", verifyToken, authorizeRoles("CONTRACTOR", "ACCOUNTANT"), controller.getSalaryById);
+router.patch("/:id/finalize", verifyToken, authorizeRoles("CONTRACTOR"), controller.finalizeSalary);
+router.post("/:id/pay", verifyToken, authorizeRoles("CONTRACTOR", "ACCOUNTANT"), controller.paySalaryById);
+module.exports = router;

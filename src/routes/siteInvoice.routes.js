@@ -1,0 +1,14 @@
+﻿const express = require("express");
+const router = express.Router();
+const controller = require("../controllers/siteInvoiceController");
+const { verifyToken } = require("../middlewares/auth.middleware");
+const { authorizeRoles } = require("../middlewares/role.middleware");
+const allowed = authorizeRoles("CONTRACTOR", "ACCOUNTANT");
+router.get("/preview", verifyToken, allowed, controller.previewInvoice);
+router.post("/", verifyToken, allowed, controller.createInvoice);
+router.get("/", verifyToken, allowed, controller.getInvoices);
+router.get("/:id/excel", verifyToken, allowed, controller.exportInvoiceExcel);
+router.get("/:id", verifyToken, allowed, controller.getInvoiceById);
+router.patch("/:id/payment", verifyToken, allowed, controller.updateInvoicePayment);
+module.exports = router;
+
