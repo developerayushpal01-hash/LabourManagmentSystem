@@ -1,0 +1,179 @@
+@import "tailwindcss";
+
+:root {
+  --font-sans: Arial, Helvetica, sans-serif;
+  --font-mono: "Courier New", Courier, monospace;
+}
+
+html.dark, html[data-theme="dark"] { color-scheme: dark; }
+html.dark, html[data-theme="dark"] body, html.dark, html[data-theme="dark"] .bg-\[\#f7f8fc\] { background: #0f172a !important; color: #e2e8f0; }
+html.dark, html[data-theme="dark"] .bg-white, html.dark, html[data-theme="dark"] .bg-slate-50 { background-color: #172033 !important; }
+html.dark, html[data-theme="dark"] .border-slate-200, html.dark, html[data-theme="dark"] .border-slate-300, html.dark, html[data-theme="dark"] .border-gray-400, html.dark, html[data-theme="dark"] .border-gray-300 { border-color: #334155 !important; }
+html.dark, html[data-theme="dark"] .text-slate-950, html.dark, html[data-theme="dark"] .text-slate-900, html.dark, html[data-theme="dark"] .text-slate-800, html.dark, html[data-theme="dark"] .text-gray-900, html.dark, html[data-theme="dark"] .text-gray-700 { color: #f1f5f9 !important; }
+html.dark, html[data-theme="dark"] .text-slate-700, html.dark, html[data-theme="dark"] .text-slate-600, html.dark, html[data-theme="dark"] .text-slate-500, html.dark, html[data-theme="dark"] .text-slate-400, html.dark, html[data-theme="dark"] .text-gray-500 { color: #cbd5e1 !important; }
+html.dark, html[data-theme="dark"] input, html.dark, html[data-theme="dark"] select, html.dark, html[data-theme="dark"] textarea { background-color: #0f172a !important; border-color: #475569 !important; color: #f8fafc !important; }
+html.dark, html[data-theme="dark"] .bg-indigo-50, html.dark, html[data-theme="dark"] .bg-emerald-50, html.dark, html[data-theme="dark"] .bg-amber-50, html.dark, html[data-theme="dark"] .bg-red-50 { background-color: #1e293b !important; }
+html.dark, html[data-theme="dark"] [id^="invoice-"] { background: #fff !important; color: #000 !important; }
+/* Kinetic neon theme */
+:root {
+  --kinetic-bg: #080d1d;
+  --kinetic-surface: #11172a;
+  --kinetic-surface-raised: #171d35;
+  --kinetic-border: #303858;
+  --kinetic-text: #f4f1ff;
+  --kinetic-muted: #a9b0ca;
+  --kinetic-violet: #8b5cf6;
+  --kinetic-violet-bright: #a970ff;
+}
+
+html.dark, html[data-theme="dark"] { color-scheme: dark; background: var(--kinetic-bg); }
+html:is(.dark, [data-theme="dark"]) body.kinetic-app {
+  color: var(--kinetic-text);
+  background:
+    radial-gradient(circle at 52% 8%, rgba(124, 58, 237, .16), transparent 32rem),
+    linear-gradient(145deg, #080d1d 0%, #0d1224 58%, #0a1020 100%);
+  background-attachment: fixed;
+}
+
+html:is(.dark, [data-theme="dark"]) .kinetic-app .bg-\[\#f7f8fc\],
+html:is(.dark, [data-theme="dark"]) .kinetic-app .bg-\[\#f5f6f8\],
+html:is(.dark, [data-theme="dark"]) .kinetic-app .bg-slate-100 { background-color: transparent !important; }
+html:is(.dark, [data-theme="dark"]) .kinetic-app .bg-white,
+html:is(.dark, [data-theme="dark"]) .kinetic-app .bg-slate-50,
+html:is(.dark, [data-theme="dark"]) .kinetic-app aside { background-color: rgba(17, 23, 42, .96) !important; }
+html:is(.dark, [data-theme="dark"]) .kinetic-app nav,
+html:is(.dark, [data-theme="dark"]) .kinetic-app header { border-color: var(--kinetic-border); }
+
+html:is(.dark, [data-theme="dark"]) .kinetic-app .border-slate-100,
+html:is(.dark, [data-theme="dark"]) .kinetic-app .border-slate-200,
+html:is(.dark, [data-theme="dark"]) .kinetic-app .border-slate-300,
+html:is(.dark, [data-theme="dark"]) .kinetic-app .border-gray-300,
+html:is(.dark, [data-theme="dark"]) .kinetic-app .border-gray-400,
+html:is(.dark, [data-theme="dark"]) .kinetic-app .divide-slate-100 > :not([hidden]) ~ :not([hidden]),
+html:is(.dark, [data-theme="dark"]) .kinetic-app .divide-slate-200 > :not([hidden]) ~ :not([hidden]) { border-color: var(--kinetic-border) !important; }
+
+html:is(.dark, [data-theme="dark"]) .kinetic-app .text-slate-950,
+html:is(.dark, [data-theme="dark"]) .kinetic-app .text-slate-900,
+html:is(.dark, [data-theme="dark"]) .kinetic-app .text-slate-800,
+html:is(.dark, [data-theme="dark"]) .kinetic-app .text-gray-900,
+html:is(.dark, [data-theme="dark"]) .kinetic-app .text-gray-800,
+html:is(.dark, [data-theme="dark"]) .kinetic-app .text-gray-700 { color: var(--kinetic-text) !important; }
+html:is(.dark, [data-theme="dark"]) .kinetic-app .text-slate-700,
+html:is(.dark, [data-theme="dark"]) .kinetic-app .text-slate-600,
+html:is(.dark, [data-theme="dark"]) .kinetic-app .text-slate-500,
+html:is(.dark, [data-theme="dark"]) .kinetic-app .text-slate-400,
+html:is(.dark, [data-theme="dark"]) .kinetic-app .text-gray-600,
+html:is(.dark, [data-theme="dark"]) .kinetic-app .text-gray-500 { color: var(--kinetic-muted) !important; }
+
+html:is(.dark, [data-theme="dark"]) .kinetic-app .text-indigo-500,
+html:is(.dark, [data-theme="dark"]) .kinetic-app .text-indigo-600,
+html:is(.dark, [data-theme="dark"]) .kinetic-app .text-indigo-700,
+html:is(.dark, [data-theme="dark"]) .kinetic-app .text-violet-700 { color: var(--kinetic-violet-bright) !important; }
+html:is(.dark, [data-theme="dark"]) .kinetic-app .bg-indigo-600,
+html:is(.dark, [data-theme="dark"]) .kinetic-app .bg-indigo-700,
+html:is(.dark, [data-theme="dark"]) .kinetic-app .bg-\[\#4938df\],
+html:is(.dark, [data-theme="dark"]) .kinetic-app .bg-\[\#5042e8\] {
+  background: linear-gradient(135deg, #6d3de8, #925cff) !important;
+  box-shadow: 0 0 18px rgba(139, 92, 246, .28);
+}
+html:is(.dark, [data-theme="dark"]) .kinetic-app .hover\:bg-indigo-800:hover,
+html:is(.dark, [data-theme="dark"]) .kinetic-app .hover\:bg-\[\#3d2fc5\]:hover { background: linear-gradient(135deg, #7c3aed, #a970ff) !important; }
+html:is(.dark, [data-theme="dark"]) .kinetic-app .bg-indigo-50,
+html:is(.dark, [data-theme="dark"]) .kinetic-app .bg-indigo-100 { background-color: rgba(124, 58, 237, .16) !important; }
+html:is(.dark, [data-theme="dark"]) .kinetic-app .border-indigo-200,
+html:is(.dark, [data-theme="dark"]) .kinetic-app .border-indigo-300,
+html:is(.dark, [data-theme="dark"]) .kinetic-app .border-indigo-500 { border-color: rgba(167, 112, 255, .62) !important; }
+
+html:is(.dark, [data-theme="dark"]) .kinetic-app input,
+html:is(.dark, [data-theme="dark"]) .kinetic-app select,
+html:is(.dark, [data-theme="dark"]) .kinetic-app textarea {
+  color: var(--kinetic-text) !important;
+  background-color: #0b1122 !important;
+  border-color: #39415f !important;
+}
+html:is(.dark, [data-theme="dark"]) .kinetic-app input::placeholder,
+html:is(.dark, [data-theme="dark"]) .kinetic-app textarea::placeholder { color: #747d9c !important; }
+html:is(.dark, [data-theme="dark"]) .kinetic-app input:focus,
+html:is(.dark, [data-theme="dark"]) .kinetic-app select:focus,
+html:is(.dark, [data-theme="dark"]) .kinetic-app textarea:focus {
+  border-color: var(--kinetic-violet) !important;
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, .14) !important;
+}
+html:is(.dark, [data-theme="dark"]) .kinetic-app option { color: var(--kinetic-text); background: #11172a; }
+
+html:is(.dark, [data-theme="dark"]) .kinetic-app table thead,
+html:is(.dark, [data-theme="dark"]) .kinetic-app .bg-gray-50 { background-color: rgba(25, 31, 55, .92) !important; }
+html:is(.dark, [data-theme="dark"]) .kinetic-app tbody tr:hover,
+html:is(.dark, [data-theme="dark"]) .kinetic-app .hover\:bg-slate-50:hover,
+html:is(.dark, [data-theme="dark"]) .kinetic-app .hover\:bg-gray-100:hover { background-color: rgba(124, 58, 237, .09) !important; }
+html:is(.dark, [data-theme="dark"]) .kinetic-app article,
+html:is(.dark, [data-theme="dark"]) .kinetic-app section,
+html:is(.dark, [data-theme="dark"]) .kinetic-app form { --tw-shadow-color: rgba(0, 0, 0, .35); }
+html:is(.dark, [data-theme="dark"]) .kinetic-app .shadow-sm,
+html:is(.dark, [data-theme="dark"]) .kinetic-app .shadow-md,
+html:is(.dark, [data-theme="dark"]) .kinetic-app .shadow-lg { box-shadow: 0 12px 35px rgba(0, 0, 0, .22), 0 0 0 1px rgba(139, 92, 246, .03) !important; }
+
+html:is(.dark, [data-theme="dark"]) .kinetic-app .bg-emerald-50 { background-color: rgba(16, 185, 129, .12) !important; }
+html:is(.dark, [data-theme="dark"]) .kinetic-app .bg-amber-50 { background-color: rgba(245, 158, 11, .12) !important; }
+html:is(.dark, [data-theme="dark"]) .kinetic-app .bg-red-50, html:is(.dark, [data-theme="dark"]) .kinetic-app .bg-rose-50 { background-color: rgba(239, 68, 68, .12) !important; }
+html:is(.dark, [data-theme="dark"]) .kinetic-app .bg-blue-50, html:is(.dark, [data-theme="dark"]) .kinetic-app .bg-sky-50 { background-color: rgba(14, 165, 233, .12) !important; }
+html:is(.dark, [data-theme="dark"]) .kinetic-app button:disabled { opacity: .5; }
+
+/* Printable invoices must remain paper-white. */
+html:is(.dark, [data-theme="dark"]) .kinetic-app [id^="invoice-"] { background: #fff !important; color: #000 !important; color-scheme: light; }
+html:is(.dark, [data-theme="dark"]) .kinetic-app [id^="invoice-"] * { border-color: revert; }
+/* Users page: splash-inspired dark mode refinements */
+html:is(.dark, [data-theme="dark"]) .users-page {
+  background:
+    radial-gradient(circle at 78% 5%, rgba(124, 58, 237, .13), transparent 30rem),
+    #080d1d !important;
+}
+html:is(.dark, [data-theme="dark"]) .users-page article,
+html:is(.dark, [data-theme="dark"]) .users-page main > section {
+  background: linear-gradient(145deg, rgba(23, 29, 53, .98), rgba(14, 20, 39, .98)) !important;
+  border-color: rgba(111, 91, 171, .34) !important;
+}
+html:is(.dark, [data-theme="dark"]) .users-page article:hover {
+  border-color: rgba(139, 92, 246, .5) !important;
+}
+html:is(.dark, [data-theme="dark"]) .users-page table thead {
+  background: rgba(31, 28, 62, .92) !important;
+  color: #b9b4d2 !important;
+}
+html:is(.dark, [data-theme="dark"]) .users-page table tbody {
+  background: rgba(12, 18, 35, .55);
+}
+html:is(.dark, [data-theme="dark"]) .users-page table tbody tr {
+  border-color: rgba(65, 73, 108, .6) !important;
+}
+html:is(.dark, [data-theme="dark"]) .users-page table tbody tr:hover {
+  background: rgba(124, 58, 237, .11) !important;
+}
+html:is(.dark, [data-theme="dark"]) .users-page .bg-slate-100,
+html:is(.dark, [data-theme="dark"]) .users-page .bg-slate-200 {
+  background-color: rgba(89, 94, 130, .2) !important;
+}
+html:is(.dark, [data-theme="dark"]) .users-page .bg-sky-100 {
+  background-color: rgba(14, 165, 233, .15) !important;
+}
+html:is(.dark, [data-theme="dark"]) .users-page .bg-emerald-100 {
+  background-color: rgba(16, 185, 129, .15) !important;
+}
+html:is(.dark, [data-theme="dark"]) .users-page .bg-red-100 {
+  background-color: rgba(239, 68, 68, .15) !important;
+}
+html:is(.dark, [data-theme="dark"]) .users-page .text-sky-700 { color: #62d3ff !important; }
+html:is(.dark, [data-theme="dark"]) .users-page .text-emerald-700 { color: #5ee6b0 !important; }
+html:is(.dark, [data-theme="dark"]) .users-page .text-red-700 { color: #ff858d !important; }
+html:is(.dark, [data-theme="dark"]) .users-page [role="dialog"] > div {
+  background: linear-gradient(145deg, #171d35, #0e1427) !important;
+  border: 1px solid rgba(139, 92, 246, .38);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, .65), 0 0 35px rgba(124, 58, 237, .13) !important;
+}
+html:is(.dark, [data-theme="dark"]) .users-page [role="dialog"] > div > div:last-child.bg-slate-50 {
+  background: rgba(8, 13, 29, .72) !important;
+}
+html:is(.dark, [data-theme="dark"]) .users-page button.border-slate-300,
+html:is(.dark, [data-theme="dark"]) .users-page a.border-slate-300 {
+  background-color: rgba(17, 23, 42, .9) !important;
+}
