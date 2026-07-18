@@ -1,5 +1,6 @@
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
+const Company = require("../models/Company");
 
 exports.verifyToken = async (req, res, next) => {
   try {
@@ -35,6 +36,11 @@ exports.verifyToken = async (req, res, next) => {
         success: false,
         message: "User is not active",
       });
+    }
+
+    if (user.role !== "SUPER_ADMIN") {
+      const company = await Company.findOne({ _id: user.companyId, isDeleted: { $ne: true } }).select("status");
+      if (!company || company.status !== "ACTIVE") return res.status(403).json({ success: false, message: "Company account is not active" });
     }
 
     req.user = user;

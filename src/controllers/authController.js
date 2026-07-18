@@ -1,4 +1,4 @@
-const bcrypt = require("bcryptjs");
+﻿const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 const Company = require("../models/Company");
@@ -72,6 +72,7 @@ const companyCode = `COMP-${String(nextNumber).padStart(4, "0")}`;
   address: {
     street: address.street,
     city: address.city,
+    district: address.district,
     state: address.state,
     pincode: address.pincode,
     country: address.country || "India",

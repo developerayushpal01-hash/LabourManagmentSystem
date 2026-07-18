@@ -20,6 +20,7 @@ const siteInvoiceSchema = new mongoose.Schema({
   billingTo: { type: Date, required: true },
   issueDate: { type: Date, default: Date.now },
   dueDate: { type: Date, required: true },
+  invoiceType: { type: String, enum: ["ATTENDANCE", "CUSTOM"], default: "ATTENDANCE" },
   lines: { type: [invoiceLineSchema], default: [] },
   baseAmount: { type: Number, default: 0, min: 0 },
   serviceChargePercent: { type: Number, default: 0, min: 0, max: 100 },

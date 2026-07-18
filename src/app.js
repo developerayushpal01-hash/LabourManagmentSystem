@@ -1,4 +1,4 @@
-const express = require("express");
+﻿const express = require("express");
 const cookieParser = require("cookie-parser");
 const authRoutes = require("./routes/auth.routes");
 const companyRotes = require('./routes/company.routes')
@@ -16,6 +16,8 @@ const exportRoutes = require("./routes/export.routes");
 const payrollSettingRoutes = require("./routes/payrollSetting.routes");
 const salarySlipRoutes = require("./routes/salarySlip.routes")
 const siteInvoiceRoutes = require("./routes/siteInvoice.routes")
+const superAdminRoutes = require("./routes/superAdmin.routes")
+const subscriptionRoutes = require("./routes/subscription.routes")
 const cors = require("cors");
 
 
@@ -83,5 +85,9 @@ app.use("/api/salaryslip", salarySlipRoutes);
 
 app.use("/api/site-invoices", siteInvoiceRoutes);
 
+app.use("/api/super-admin", superAdminRoutes);
+app.use("/api/subscriptions", subscriptionRoutes);
+
 
 module.exports = app;
+

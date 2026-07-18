@@ -1,4 +1,4 @@
-const mongoose = require("mongoose");
+﻿const mongoose = require("mongoose");
 
 const companySchema = new mongoose.Schema(
   {
@@ -41,6 +41,10 @@ const companySchema = new mongoose.Schema(
         required: true,
         trim: true,
       },
+      district: {
+        type: String,
+        trim: true,
+      },
       state: {
         type: String,
         required: true,
@@ -67,6 +71,9 @@ const companySchema = new mongoose.Schema(
       enum: ["ACTIVE", "INACTIVE", "BLOCKED"],
       default: "ACTIVE",
     },
+    isDeleted: { type: Boolean, default: false },
+    deletedAt: { type: Date, default: null },
+    deletedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",

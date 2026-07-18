@@ -106,13 +106,27 @@ const previewInvoice = async (req, res) => {
 
 const createInvoice = async (req, res) => {
   try {
+    const isCustom = req.body.invoiceType === "CUSTOM";
     const preview = await buildPreview(req, {
       siteId: req.body.siteId,
       billingFrom: req.body.billingFrom,
       billingTo: req.body.billingTo,
       hsnSacCode: req.body.hsnSacCode,
     });
-    if (!preview.labourDetails.length) return res.status(400).json({ success: false, message: "No attendance records found for this site and period" });
+    if (!isCustom && !preview.labourDetails.length) return res.status(400).json({ success: false, message: "No attendance records found for this site and period" });
+
+    let invoiceLines;
+    if (isCustom) {
+      const requestedLines = Array.isArray(req.body.customLines) ? req.body.customLines : [];
+      if (!requestedLines.length || requestedLines.length > 100) return res.status(400).json({ success: false, message: "Add between 1 and 100 custom invoice rows" });
+      invoiceLines = requestedLines.map((line) => {
+        const description = String(line?.description || "").trim().slice(0, 250);
+        const hsnSacCode = String(line?.hsnSacCode || "").trim().slice(0, 30);
+        const quantity = Number(line?.quantity), rate = Number(line?.rate);
+        if (!description || !Number.isFinite(quantity) || quantity <= 0 || !Number.isFinite(rate) || rate < 0) throw Object.assign(new Error("Every row needs a description, quantity above zero and a valid rate"), { statusCode: 400 });
+        return { description, hsnSacCode, quantity: round(quantity), rate: round(rate), amount: round(quantity * rate) };
+      });
+    }
     
     // Fetch company details to get GST
     const company = await Company.findOne({ _id: req.user.companyId });
@@ -135,19 +149,16 @@ const createInvoice = async (req, res) => {
     if (![serviceChargePercent, cgstPercent, sgstPercent, adjustmentAmount].every(Number.isFinite) || serviceChargePercent < 0 || serviceChargePercent > 100 || cgstPercent < 0 || cgstPercent > 100 || sgstPercent < 0 || sgstPercent > 100) {
       return res.status(400).json({ success: false, message: "Invalid service charge, tax or adjustment" });
     }
-    const serviceChargeAmount = serviceChargeEnabled ? round(preview.baseAmount * serviceChargePercent / 100) : 0;
+    const requestedDescriptions = Array.isArray(req.body.lineDescriptions) ? req.body.lineDescriptions : [];
+    if (!isCustom) invoiceLines = preview.lines.map((line, index) => ({ ...line, description: String(requestedDescriptions[index] || line.description).trim().slice(0, 250) || line.description }));
+    const baseAmount = round(invoiceLines.reduce((sum, line) => sum + line.amount, 0));
+    const serviceChargeAmount = serviceChargeEnabled ? round(baseAmount * serviceChargePercent / 100) : 0;
     const appliedAdjustment = adjustmentEnabled ? adjustmentAmount : 0;
-    const taxableAmount = round(Math.max(preview.baseAmount + serviceChargeAmount + appliedAdjustment, 0));
+    const taxableAmount = round(Math.max(baseAmount + serviceChargeAmount + appliedAdjustment, 0));
     const cgstAmount = cgstEnabled ? round(taxableAmount * cgstPercent / 100) : 0;
     const sgstAmount = sgstEnabled ? round(taxableAmount * sgstPercent / 100) : 0;
     const gstAmount = round(cgstAmount + sgstAmount);
     const totalAmount = round(taxableAmount + gstAmount);
-    
-    const requestedDescriptions = Array.isArray(req.body.lineDescriptions) ? req.body.lineDescriptions : [];
-    const invoiceLines = preview.lines.map((line, index) => ({
-      ...line,
-      description: String(requestedDescriptions[index] || line.description).trim().slice(0, 250) || line.description,
-    }));
     const invoiceNumber = await nextInvoiceNumber(req);
     const dueDate = validDate(req.body.dueDate) ? new Date(req.body.dueDate) : new Date(Date.now() + 15 * 86400000);
     
@@ -162,8 +173,9 @@ const createInvoice = async (req, res) => {
       billingFrom: preview.billingFrom,
       billingTo: preview.billingTo,
       dueDate,
+      invoiceType: isCustom ? "CUSTOM" : "ATTENDANCE",
       lines: invoiceLines,
-      baseAmount: preview.baseAmount,
+      baseAmount,
       serviceChargePercent,
       serviceChargeAmount,
       serviceChargeEnabled,
