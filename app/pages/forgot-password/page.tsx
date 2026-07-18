@@ -1,5 +1,6 @@
-"use client"
+﻿"use client"
 
+import Image from "next/image"
 import Link from "next/link"
 import { FormEvent, useState } from "react"
 import { useRouter } from "next/navigation"
@@ -104,11 +105,10 @@ const ForgotPasswordPage = () => {
   return (
     <main className="flex min-h-[100dvh] flex-col bg-gradient-to-br from-[#f1f3ff] via-[#f7f8fb] to-[#edf2f7] text-slate-900">
       <header className="flex h-14 shrink-0 items-center justify-between border-b border-slate-300 bg-white px-5 sm:px-7">
-        <div className="flex items-center gap-4">
-          <Link href="/" className="text-xl font-bold text-[#4432db]">Kinetic LMS</Link>
-          <span className="hidden h-5 w-px bg-slate-300 sm:block" />
-          <span className="hidden text-sm text-slate-600 sm:block">Labor Management System</span>
-        </div>
+        <Link href="/pages/login" className="flex items-center gap-2.5">
+          <span className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl border border-indigo-100 bg-white shadow-sm"><Image src="/assets/logo.png?v=forgot-brand-2" alt="Kinetic LMS" width={38} height={38} unoptimized className="h-9 w-9 object-contain" /></span>
+          <span><strong className="block text-base font-extrabold text-slate-900">Kinetic <i className="not-italic text-indigo-600">LMS</i></strong><small className="hidden text-[8px] font-bold uppercase tracking-[.16em] text-slate-500 sm:block">Labor Management System</small></span>
+        </Link>
         <div className="flex items-center gap-3 text-xs">
           <span className="hidden text-slate-600 sm:inline">Authentication</span>
           <span className="hidden text-slate-400 sm:inline">&gt;</span>
@@ -119,7 +119,7 @@ const ForgotPasswordPage = () => {
       <section className="flex flex-1 items-center justify-center px-4 py-8">
         <div className="w-full max-w-md rounded-lg border border-slate-200 bg-white px-6 py-7 shadow-lg shadow-slate-200/70 sm:px-8">
           <div className="text-center">
-            <div className="text-3xl font-bold text-[#4432db]">LMS</div>
+            <div className="mx-auto flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl border border-indigo-100 bg-indigo-50 shadow-sm"><Image src="/assets/logo.png?v=forgot-form-2" alt="Kinetic LMS" width={58} height={58} unoptimized className="h-14 w-14 object-contain" /></div>
             <h1 className="mt-1 text-xl font-semibold text-slate-700">Forgot Password</h1>
             <p className="mt-2 text-sm text-slate-500">Please verify your identity to reset your password.</p>
           </div>
@@ -228,7 +228,7 @@ const ForgotPasswordPage = () => {
 
       <footer className="flex shrink-0 flex-col gap-2 px-6 py-4 text-[11px] text-slate-500 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-wrap items-center gap-4">
-          <span>&copy; 2026 Kinetic Enterprise Edition</span>
+          <span>&copy; 2026 Kinetic LMS</span>
           <span>Privacy Policy</span>
           <span>System Status: <strong className="text-emerald-600">Optimal</strong></span>
         </div>

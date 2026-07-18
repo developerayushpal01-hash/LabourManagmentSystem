@@ -1,6 +1,7 @@
-"use client"
+﻿"use client"
 
 import Image from "next/image"
+import Link from "next/link"
 import { useEffect, useMemo, useState } from "react"
 import { useToast } from "@/app/components/toast-provider"
 import { apiUrl } from "@/lib/api"
@@ -82,10 +83,9 @@ const StatCard = ({ title, value, subtitle, icon, accent, badge, progress }: Sta
   </article>
 )
 
-const ChartCard = ({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) => (
+const ChartCard = ({ title, subtitle, action, children }: { title: string; subtitle: string; action?: React.ReactNode; children: React.ReactNode }) => (
   <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-    <h2 className="font-bold text-slate-900">{title}</h2>
-    <p className="mt-1 text-xs text-slate-500">{subtitle}</p>
+    <div className="flex items-start justify-between gap-3"><div><h2 className="font-bold text-slate-900">{title}</h2><p className="mt-1 text-xs text-slate-500">{subtitle}</p></div>{action}</div>
     <div className="mt-5">{children}</div>
   </article>
 )
@@ -120,8 +120,11 @@ export default function ContractorDashboard() {
   const now = useMemo(() => new Date(), [])
   const [dashboard, setDashboard] = useState<DashboardData | null>(null)
   const [attendance, setAttendance] = useState<NamedValue[]>([])
+  const [attendanceRange, setAttendanceRange] = useState<"daily" | "7days" | "monthly" | "yearly">("monthly")
   const [salary, setSalary] = useState<SalaryPoint[]>([])
+  const [salaryRange, setSalaryRange] = useState<"monthly" | "yearly">("yearly")
   const [payments, setPayments] = useState<NamedValue[]>([])
+  const [paymentRange, setPaymentRange] = useState<"daily" | "7days" | "monthly" | "yearly">("monthly")
   const [siteLabour, setSiteLabour] = useState<SiteLabourPoint[]>([])
   const [loading, setLoading] = useState(true)
   const [overviewError, setOverviewError] = useState("")
@@ -131,13 +134,12 @@ export default function ContractorDashboard() {
     const controller = new AbortController()
 
     const loadDashboard = async () => {
-      const month = now.getMonth() + 1
       const year = now.getFullYear()
       const requests = await Promise.allSettled([
         fetchDashboardApi<DashboardData>("/dashboard/contractor", controller.signal),
-        fetchDashboardApi<NamedValue[]>("/dashboard/attendance-chart", controller.signal),
-        fetchDashboardApi<SalaryPoint[]>(`/dashboard/salary-chart?year=${year}`, controller.signal),
-        fetchDashboardApi<NamedValue[]>(`/dashboard/payment-chart?month=${month}&year=${year}`, controller.signal),
+        fetchDashboardApi<NamedValue[]>(`/dashboard/attendance-chart?range=${attendanceRange}`, controller.signal),
+        fetchDashboardApi<SalaryPoint[]>(`/dashboard/salary-chart?year=${year}&range=${salaryRange}`, controller.signal),
+        fetchDashboardApi<NamedValue[]>(`/dashboard/payment-chart?range=${paymentRange}`, controller.signal),
         fetchDashboardApi<SiteLabourPoint[]>("/dashboard/site-labour-chart", controller.signal),
       ])
 
@@ -171,7 +173,7 @@ export default function ContractorDashboard() {
 
     void loadDashboard()
     return () => controller.abort()
-  }, [now, showToast])
+  }, [attendanceRange, now, paymentRange, salaryRange, showToast])
 
   const attendanceTotal = dashboard
     ? dashboard.todayPresent + dashboard.todayAbsent + dashboard.todayHalfDay
@@ -205,14 +207,14 @@ export default function ContractorDashboard() {
           <section className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
             <StatCard title="Total Labour" value={numberFormatter.format(dashboard.totalLabour)} subtitle={`${numberFormatter.format(dashboard.activeLabour)} active personnel`} icon="/assets/users.png" accent="bg-purple-50" />
             <StatCard title="Active Sites" value={numberFormatter.format(dashboard.activeSites)} subtitle="Currently active project sites" icon="/assets/sites.png" accent="bg-blue-50" badge="Active" />
-            <StatCard title="Present Today" value={numberFormatter.format(dashboard.todayPresent)} subtitle={`${dashboard.todayAbsent} absent · ${dashboard.todayHalfDay} half day`} icon="/assets/present_today.png" accent="bg-sky-50" progress={attendanceRate} />
+            <StatCard title="Present Today" value={numberFormatter.format(dashboard.todayPresent)} subtitle={`${dashboard.todayAbsent} absent Â· ${dashboard.todayHalfDay} half day`} icon="/assets/present_today.png" accent="bg-sky-50" progress={attendanceRate} />
             <StatCard title="Pending Salary" value={currencyFormatter.format(dashboard.pendingSalary)} subtitle={`Paid this month: ${currencyFormatter.format(dashboard.salaryPaid)}`} icon="/assets/payroll.png" accent="bg-pink-50" />
           </section>
 
           <section className="mt-5 grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
             <StatCard title="Monthly Payable" value={currencyFormatter.format(dashboard.monthlyPayable)} subtitle="Attendance and overtime earnings" icon="/assets/payroll.png" accent="bg-indigo-50" />
             <StatCard title="Advance" value={currencyFormatter.format(dashboard.advance)} subtitle="Advance paid this month" icon="/assets/advance.png" accent="bg-amber-50" />
-            <StatCard title="Bonus & Incentive" value={currencyFormatter.format(dashboard.bonus + dashboard.incentive)} subtitle={`Bonus ${currencyFormatter.format(dashboard.bonus)} · Incentive ${currencyFormatter.format(dashboard.incentive)}`} icon="/assets/notification.png" accent="bg-emerald-50" />
+            <StatCard title="Bonus & Incentive" value={currencyFormatter.format(dashboard.bonus + dashboard.incentive)} subtitle={`Bonus ${currencyFormatter.format(dashboard.bonus)} Â· Incentive ${currencyFormatter.format(dashboard.incentive)}`} icon="/assets/notification.png" accent="bg-emerald-50" />
             <StatCard title="Deductions" value={currencyFormatter.format(dashboard.deduction)} subtitle="Total deductions this month" icon="/assets/reports.png" accent="bg-rose-50" />
           </section>
         </>
@@ -222,11 +224,25 @@ export default function ContractorDashboard() {
 
       {!loading && (
         <section className="mt-5 grid gap-5 xl:grid-cols-2">
-          <ChartCard title="Today's Attendance" subtitle="Live attendance status distribution">
-            <NamedValueChart data={attendance} />
+          <ChartCard title="Attendance Overview" subtitle={attendanceRange === "daily" ? "Today's attendance status" : attendanceRange === "7days" ? "Last 7 days attendance status" : attendanceRange === "monthly" ? now.toLocaleDateString("en-IN", { month: "long", year: "numeric" }) : `Year ${now.getFullYear()} attendance status`} action={<select aria-label="Attendance period" value={attendanceRange} onChange={(event) => setAttendanceRange(event.target.value as typeof attendanceRange)} className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"><option value="daily">Daily</option><option value="7days">Last 7 Days</option><option value="monthly">Monthly</option><option value="yearly">Yearly</option></select>}>
+            {attendance.some((item) => item.value > 0) ? (
+              <NamedValueChart data={attendance} />
+            ) : (
+              <div className="flex min-h-36 flex-col items-center justify-center rounded-xl border border-dashed border-indigo-200 bg-indigo-50/50 px-5 py-6 text-center">
+                <div className="flex h-11 w-11 items-center justify-center rounded-full bg-indigo-100 text-indigo-600">
+                  <svg aria-hidden="true" viewBox="0 0 24 24" className="h-6 w-6" fill="none">
+                    <path d="M7 3v3M17 3v3M4 9h16M6 5h12a2 2 0 0 1 2 2v12H4V7a2 2 0 0 1 2-2Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                    <path d="m9 14 2 2 4-4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </div>
+                <h3 className="mt-3 text-sm font-bold text-slate-800">Attendance not marked yet</h3>
+                <p className="mt-1 max-w-sm text-xs leading-5 text-slate-500">Selected period mein attendance submit hone ke baad status distribution yahan dikhai dega.</p>
+                <Link href="/pages/contractorpages/attendance/mark" className="mt-4 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-indigo-700">Mark Today&apos;s Attendance</Link>
+              </div>
+            )}
           </ChartCard>
 
-          <ChartCard title="Payments This Month" subtitle={now.toLocaleDateString("en-IN", { month: "long", year: "numeric" })}>
+          <ChartCard title="Payments Overview" subtitle={paymentRange === "daily" ? "Today's payment transactions" : paymentRange === "7days" ? "Last 7 days payment transactions" : paymentRange === "monthly" ? now.toLocaleDateString("en-IN", { month: "long", year: "numeric" }) : `Year ${now.getFullYear()} payments`} action={<select aria-label="Payment period" value={paymentRange} onChange={(event) => setPaymentRange(event.target.value as typeof paymentRange)} className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"><option value="daily">Daily</option><option value="7days">Last 7 Days</option><option value="monthly">Monthly</option><option value="yearly">Yearly</option></select>}>
             <NamedValueChart data={payments} currency />
           </ChartCard>
 
@@ -234,7 +250,7 @@ export default function ContractorDashboard() {
             <NamedValueChart data={siteData} />
           </ChartCard>
 
-          <ChartCard title="Yearly Salary Trend" subtitle={`Net, paid and pending salary for ${now.getFullYear()}`}>
+          <ChartCard title="Salary Trend" subtitle={salaryRange === "monthly" ? `Net, paid and pending salary for ${now.toLocaleDateString("en-IN", { month: "long", year: "numeric" })}` : `Net, paid and pending salary for ${now.getFullYear()}`} action={<select aria-label="Salary period" value={salaryRange} onChange={(event) => setSalaryRange(event.target.value as typeof salaryRange)} className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"><option value="monthly">Monthly</option><option value="yearly">Yearly</option></select>}>
             {salary.some((item) => item.netSalary || item.paidSalary || item.pendingSalary) ? (
               <div className="overflow-x-auto">
                 <div className="min-w-[620px]">
@@ -264,3 +280,4 @@ export default function ContractorDashboard() {
     </div>
   )
 }
+

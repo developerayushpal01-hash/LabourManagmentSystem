@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { ReactNode, useCallback, useEffect, useState } from "react"
 import { usePathname, useRouter } from "next/navigation"
@@ -32,9 +32,9 @@ const ContractorRoute = ({ children }: ContractorRouteProps) => {
           credentials: "include",
           signal: controller.signal,
         })
-        const result = (await response.json()) as AuthResponse
+        const result = (await response.json().catch(() => ({ success: false }))) as AuthResponse
 
-        if (!response.ok || !result.success || !result.user) {
+        if (response.status === 401 || !response.ok || !result.success || !result.user) {
           router.replace(`/pages/login?next=${encodeURIComponent(pathname)}`)
           return
         }

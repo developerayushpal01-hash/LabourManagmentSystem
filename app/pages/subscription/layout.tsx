@@ -1,0 +1,1 @@
+import type{ReactNode}from"react";import ContractorRoute from"@/app/components/contractor-route";export default function Layout({children}:{children:ReactNode}){return <ContractorRoute>{children}</ContractorRoute>}
