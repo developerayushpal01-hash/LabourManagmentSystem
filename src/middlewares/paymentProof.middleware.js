@@ -1,0 +1,10 @@
+﻿const multer = require("multer");
+const path = require("path");
+const fs = require("fs");
+const crypto = require("crypto");
+const proofDirectory = path.resolve(__dirname, "../../uploads/payment-proofs");
+fs.mkdirSync(proofDirectory, { recursive: true });
+const allowed = new Set(["image/jpeg", "image/png", "image/webp", "application/pdf"]);
+const storage = multer.diskStorage({ destination: (_req, _file, callback) => callback(null, proofDirectory), filename: (_req, file, callback) => callback(null, `${Date.now()}-${crypto.randomBytes(10).toString("hex")}${path.extname(file.originalname).toLowerCase()}`) });
+exports.paymentProofUpload = multer({ storage, limits: { fileSize: 5 * 1024 * 1024 }, fileFilter: (_req, file, callback) => allowed.has(file.mimetype) ? callback(null, true) : callback(new Error("Only JPG, PNG, WEBP or PDF payment proof is allowed")) }).single("paymentProof");
+exports.proofDirectory = proofDirectory;

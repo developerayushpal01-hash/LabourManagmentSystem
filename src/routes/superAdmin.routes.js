@@ -4,7 +4,9 @@ const control=require("../controllers/superAdminControlController");
 const plans=require("../controllers/subscriptionPlanController");
 const {verifyToken}=require("../middlewares/auth.middleware");
 const {authorizeRoles}=require("../middlewares/role.middleware");
+const {auditSuperAdminMutation}=require("../middlewares/audit.middleware");
 router.use(verifyToken,authorizeRoles("SUPER_ADMIN"));
+router.use(auditSuperAdminMutation);
 router.get("/dashboard",c.dashboard);
 router.get("/data",c.platformResources);
 router.get("/data/:resource",c.platformData);
@@ -24,6 +26,8 @@ router.get("/subscriptions",control.listSubscriptions);
 router.post("/subscriptions",control.createSubscription);
 router.put("/subscriptions/:id",control.updateSubscription);
 router.patch("/subscriptions/:id/status",control.subscriptionStatus);
+router.get("/subscriptions/:id/payment-proof",control.paymentProof);
+router.patch("/subscriptions/:id/verify-payment",control.verifySubscriptionPayment);
 router.delete("/subscriptions/:id",control.deleteSubscription);
 router.get("/plans",plans.adminList);
 router.post("/plans",plans.create);
@@ -37,6 +41,12 @@ router.put("/notifications/:id",control.updateNotification);
 router.patch("/notifications/read-all",control.markAllRead);
 router.patch("/notifications/:id/read",control.markRead);
 router.delete("/notifications/:id",control.deleteNotification);
+router.get("/audit-logs",control.listAuditLogs);
+router.get("/settings",control.getSettings);
+router.put("/settings",control.updateSettings);
+router.get("/reports/summary",control.reportSummary);
 module.exports=router;
+
+
 
 
