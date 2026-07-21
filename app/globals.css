@@ -177,3 +177,73 @@ html:is(.dark, [data-theme="dark"]) .users-page button.border-slate-300,
 html:is(.dark, [data-theme="dark"]) .users-page a.border-slate-300 {
   background-color: rgba(17, 23, 42, .9) !important;
 }
+/* Super Admin tables use the same compact data-grid language as Contractor Panel. */
+.super-admin-app main section:has(> .overflow-x-auto > table),
+.super-admin-app main div:has(> .overflow-x-auto > table) {
+  border-radius: .5rem !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, .05) !important;
+}
+.super-admin-app main .overflow-x-auto:has(> table) {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+.super-admin-app main table {
+  min-width: 760px;
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+.super-admin-app main table thead {
+  background: #f8fafc;
+  color: #64748b;
+  font-size: 10px !important;
+  font-weight: 600;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+.super-admin-app main table thead th {
+  border-bottom: 1px solid #e2e8f0;
+  padding: .75rem 1.25rem !important;
+  white-space: nowrap;
+}
+.super-admin-app main table tbody {
+  font-size: .875rem;
+}
+.super-admin-app main table tbody tr {
+  border-bottom: 1px solid #f1f5f9;
+  transition: background-color 150ms ease;
+}
+.super-admin-app main table tbody tr:last-child {
+  border-bottom: 0;
+}
+.super-admin-app main table tbody tr:hover {
+  background: #f8fafc;
+}
+.super-admin-app main table tbody td {
+  padding: 1rem 1.25rem !important;
+  vertical-align: middle;
+}
+.super-admin-app main table tbody td small {
+  color: #94a3b8;
+  font-size: .7rem;
+}
+.super-admin-app main table button,
+.super-admin-app main table select {
+  min-height: 2.25rem;
+}
+.super-admin-app main table + p {
+  border-top: 1px solid #f1f5f9;
+  padding: 2.5rem !important;
+  text-align: center;
+  font-size: .875rem;
+  color: #64748b;
+}
+@media (max-width: 767px) {
+  .super-admin-app main table { min-width: 820px; }
+  .super-admin-app main table thead th,
+  .super-admin-app main table tbody td { padding-left: 1rem !important; padding-right: 1rem !important; }
+}
+html:is(.dark, [data-theme="dark"]) .super-admin-app main table thead { background: rgba(31, 28, 62, .92) !important; color: #b9b4d2 !important; }
+html:is(.dark, [data-theme="dark"]) .super-admin-app main table tbody tr { border-color: rgba(65, 73, 108, .6) !important; }
+html:is(.dark, [data-theme="dark"]) .super-admin-app main table tbody tr:hover { background: rgba(124, 58, 237, .11) !important; }
