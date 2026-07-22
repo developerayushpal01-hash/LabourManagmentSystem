@@ -1,0 +1,10 @@
+const router = require("express").Router();
+const controller = require("../controllers/quotationController");
+const { verifyToken } = require("../middlewares/auth.middleware");
+const { authorizeRoles } = require("../middlewares/role.middleware");
+const allowed = authorizeRoles("CONTRACTOR", "ACCOUNTANT");
+router.get("/", verifyToken, allowed, controller.list);
+router.post("/", verifyToken, allowed, controller.create);
+router.get("/:id", verifyToken, allowed, controller.get);
+router.patch("/:id/status", verifyToken, allowed, controller.status);
+module.exports = router;

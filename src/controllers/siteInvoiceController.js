@@ -9,11 +9,16 @@ const contractorIdOf = (user) => user.role === "CONTRACTOR" ? user._id : user.pa
 const round = (value) => Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100;
 const scope = (req) => ({ companyId: req.user.companyId, contractorId: contractorIdOf(req.user), isDeleted: false });
 const validDate = (value) => value && !Number.isNaN(new Date(value).getTime());
+const companyInitials = (name) => {
+  const words = String(name || "").match(/[A-Za-z0-9]+/g) || [];
+  return words.map((word, index) => index === 0 && word.length <= 6 && word === word.toUpperCase() ? word : word[0]).join("").toUpperCase() || "CMP";
+};
 const nextInvoiceNumber = async (req) => {
   const now = new Date();
   const financialYearStart = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
   const financialYearEnd = String(financialYearStart + 1).slice(-2);
-  const prefix = `INV-${financialYearStart}-${financialYearEnd}-`;
+  const company = await Company.findById(req.user.companyId).select("companyName").lean();
+  const prefix = `${companyInitials(company?.companyName)}-${financialYearStart}-${financialYearEnd}-`;
   const invoices = await SiteInvoice.find({
     companyId: req.user.companyId,
     contractorId: contractorIdOf(req.user),
@@ -212,12 +217,12 @@ const getInvoices = async (req, res) => {
     const filter = scope(req);
     if (req.query.siteId) filter.siteId = req.query.siteId;
     if (req.query.status) filter.status = req.query.status;
-    const invoices = await SiteInvoice.find(filter).populate("siteId", "siteName siteCode clientName").sort({ issueDate: -1 });
+    const invoices = await SiteInvoice.find(filter).populate("siteId", "siteName siteCode clientName location addressLine city district state pincode").sort({ issueDate: -1 });
     return res.json({ success: true, count: invoices.length, data: invoices });
   } catch (error) { return res.status(500).json({ success: false, message: error.message }); }
 };
 const getInvoiceById = async (req, res) => {
-  try { const invoice = await SiteInvoice.findOne({ ...scope(req), _id: req.params.id }).populate("siteId", "siteName siteCode clientName location contactPerson contactEmail contactMobile").populate("companyId", "companyName gstNumber address"); if (!invoice) return res.status(404).json({ success: false, message: "Invoice not found" }); return res.json({ success: true, data: invoice }); }
+  try { const invoice = await SiteInvoice.findOne({ ...scope(req), _id: req.params.id }).populate("siteId", "siteName siteCode clientName location addressLine city district state pincode contactPerson contactEmail contactMobile").populate("companyId", "companyName gstNumber address"); if (!invoice) return res.status(404).json({ success: false, message: "Invoice not found" }); return res.json({ success: true, data: invoice }); }
   catch (error) { return res.status(500).json({ success: false, message: error.message }); }
 };
 const updateInvoicePayment = async (req, res) => {
@@ -243,8 +248,9 @@ const invoiceAmountWords = (value) => {
 
 const exportInvoiceExcel = async (req, res) => {
   try {
-    const invoice = await SiteInvoice.findOne({ ...scope(req), _id: req.params.id });
+    const invoice = await SiteInvoice.findOne({ ...scope(req), _id: req.params.id }).populate("siteId", "siteName siteCode clientName location addressLine city district state pincode");
     if (!invoice) return res.status(404).json({ success: false, message: "Invoice not found" });
+    invoice.clientName = "";
     const workbook = new ExcelJS.Workbook(); workbook.creator = "Kinetic LMS";
     const ws = workbook.addWorksheet("Invoice", { pageSetup: { paperSize: 9, orientation: "portrait", fitToPage: true, fitToWidth: 1, fitToHeight: 1, margins: { left: 0.25, right: 0.25, top: 0.7, bottom: 0.25, header: 0, footer: 0 } }, views: [{ showGridLines: false }] });
     [7, 27, 14, 15, 13, 11, 16].forEach((width, index) => { ws.getColumn(index + 1).width = width; });
@@ -252,11 +258,12 @@ const exportInvoiceExcel = async (req, res) => {
     const set = (cell, value, options = {}) => { const c = ws.getCell(cell); c.value = value; c.font = { name: "Arial", size: options.size || 10, bold: Boolean(options.bold), underline: Boolean(options.underline) }; c.alignment = { vertical: "middle", horizontal: options.align || "left", wrapText: options.wrap !== false }; return c; };
     const merge = (range, value, options = {}) => { ws.mergeCells(range); const c = set(range.split(":")[0], value, options); return c; };
     const compact = String(invoice.invoiceNumber).replace(/^INV-\d{2}(\d{2})-(\d{2})-(.+)$/, "$1-$2/$3");
+    const displayNumber = String(invoice.invoiceNumber).startsWith("INV-") ? `${companyInitials(invoice.companyName)}/${compact}` : compact.replace(/^[A-Z0-9]+(?=-\\d{4}-\\d{2}-)/, companyInitials(invoice.companyName));
     const d = (value) => new Date(value).toLocaleDateString("en-GB"); const month = new Date(invoice.billingFrom).toLocaleDateString("en-US", { month: "short", year: "numeric" });
     merge("A1:G1", "Invoice", { bold: true, size: 16, align: "center" }); ws.getRow(1).height = 26;
     merge("A2:D2", `Bill Month :- ${month}`, { bold: true }); merge("E2:G2", `Bill Period : ${d(invoice.billingFrom)} to ${d(invoice.billingTo)}`, { bold: true }); ws.getRow(2).height = 20;
     merge("A3:C8", `AL Gosar Enterprises\nBairagi Colony , Ward No.10 , Pithampur\nDist : Dhar ( M.P.) 454775\nGST No. ${invoice.supplierGstNumber || "23CFVPG6126B1ZN"}\nPAN No: CFVPG6126B\nState : Madhya Pradesh\nE- Mail : gosarenterprises8@gmail.com`, { bold: false });
-    [[3, `Invoice No. GST/${compact}`, `Date : ${d(invoice.issueDate)}`], [4, "Deliver Note", "Mode / Terms of Payment"], [5, "Supplier's Ref.", "Dated"], [6, "Vender Code", "422045"], [7, "Buyer's order No.", "Destination : PITHAMPUR"], [8, "LUT No.", "AD230425013203T"]].forEach(([row, label, value]) => { merge(`D${row}:E${row}`, label, { bold: row === 3 }); merge(`F${row}:G${row}`, value); ws.getRow(row).height = 19; });
+    [[3, `Invoice No. ${displayNumber}`, `Date : ${d(invoice.issueDate)}`], [4, "Deliver Note", "Mode / Terms of Payment"], [5, "Supplier's Ref.", "Dated"], [6, "Vender Code", "422045"], [7, "Buyer's order No.", "Destination : PITHAMPUR"], [8, "LUT No.", "AD230425013203T"]].forEach(([row, label, value]) => { merge(`D${row}:E${row}`, label, { bold: row === 3 }); merge(`F${row}:G${row}`, value); ws.getRow(row).height = 19; });
     merge("A9:C12", `Buyers & Consignee\n${invoice.clientName}\n${invoice.siteName}\nGSTIN : ${invoice.buyerGstNumber || "N/A"}`, { bold: false }); merge("D9:G12", "Terms Of Delivery :- 10 days after invoice"); [9,10,11,12].forEach(r => ws.getRow(r).height = 18);
     const headers = ["S.No.", "Description of Goods", "HSN / SAC", "Quantity", "Rate", "Per", "Amount"]; headers.forEach((value, i) => set(`${String.fromCharCode(65+i)}13`, value, { bold: true, align: "center" })); ws.getRow(13).height = 22;
     let row = 14; invoice.lines.forEach((line, index) => { [index+1, line.description, line.hsnSacCode || "-", line.quantity, line.rate, "-", line.amount].forEach((value, i) => set(`${String.fromCharCode(65+i)}${row}`, value, { align: i === 1 ? "left" : "center" })); ws.getCell(`G${row}`).numFmt = '#,##0.00'; ws.getRow(row).height = 21; row++; });

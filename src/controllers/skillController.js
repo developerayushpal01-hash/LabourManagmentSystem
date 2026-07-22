@@ -6,7 +6,7 @@ const getContractorId = (user) => {
 
 const createSkill = async (req, res) => {
   try {
-    const { skillName, skillCode, defaultDailyWage, otRatePerHour } = req.body;
+    const { skillName, skillCode, defaultDailyWage, otRatePerHour, gender = "ALL" } = req.body;
 
     if (!skillName || !defaultDailyWage) {
       return res.status(400).json({
@@ -16,6 +16,11 @@ const createSkill = async (req, res) => {
     }
 
     const contractorId = getContractorId(req.user);
+    if (!["ALL", "MALE", "FEMALE", "OTHER"].includes(gender)) {
+      return res.status(400).json({ success: false, message: "Invalid skill gender" });
+    }
+    const duplicate = await Skill.findOne({ companyId: req.user.companyId, contractorId, skillName: { $regex: `^${String(skillName).trim().replace(/[.*+?^${}()|[\\]\\\\]/g, "\\\\$&")}$`, $options: "i" }, gender, isDeleted: false });
+    if (duplicate) return res.status(409).json({ success: false, message: "This skill already exists for the selected gender" });
 
     const skill = await Skill.create({
       companyId: req.user.companyId,
@@ -24,6 +29,7 @@ const createSkill = async (req, res) => {
       skillCode,
       defaultDailyWage,
       otRatePerHour: otRatePerHour || 0,
+      gender,
     });
 
     res.status(201).json({
@@ -65,6 +71,7 @@ const updateSkill = async (req, res) => {
       "skillCode",
       "defaultDailyWage",
       "otRatePerHour",
+      "gender",
       "status",
     ];
 

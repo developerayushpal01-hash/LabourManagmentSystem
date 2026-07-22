@@ -9,19 +9,6 @@ const register = async (req, res) => {
 
 
   try {
-
-    const lastCompany = await Company.findOne().sort({ createdAt: -1 });
-
-let nextNumber = 1;
-
-if (lastCompany && lastCompany.companyCode) {
-  const lastNumber = parseInt(lastCompany.companyCode.split("-")[1]);
-  nextNumber = lastNumber + 1;
-}
-
-const companyCode = `COMP-${String(nextNumber).padStart(4, "0")}`;
-
-
   const {
   companyName,
   ownerName,
@@ -32,17 +19,21 @@ const companyCode = `COMP-${String(nextNumber).padStart(4, "0")}`;
   password,
 } = req.body;
 
+  const isFirstUser = (await User.countDocuments({})) === 0;
+
    if (
-  !companyName ||
   !ownerName ||
   !email ||
   !mobile ||
   !password ||
-  !address ||
-  !address.street ||
-  !address.city ||
-  !address.state ||
-  !address.pincode
+  (!isFirstUser && (
+    !companyName ||
+    !address ||
+    !address.street ||
+    !address.city ||
+    !address.state ||
+    !address.pincode
+  ))
 ) {
   return res.status(400).json({
     success: false,
@@ -62,6 +53,54 @@ const companyCode = `COMP-${String(nextNumber).padStart(4, "0")}`;
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
+
+    if (isFirstUser) {
+      const user = await User.create({
+        companyId: null,
+        name: ownerName,
+        email,
+        mobile,
+        password: hashedPassword,
+        role: "SUPER_ADMIN",
+        status: "ACTIVE",
+        isActive: true,
+      });
+
+      const token = jwt.sign(
+        { userId: user._id, role: user.role, companyId: null },
+        process.env.JWT_SECRET,
+        { expiresIn: "7d" }
+      );
+
+      res.cookie("token", token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+      });
+
+      return res.status(201).json({
+        success: true,
+        message: "Super Admin account created successfully",
+        company: null,
+        user: {
+          id: user._id,
+          name: user.name,
+          email: user.email,
+          mobile: user.mobile,
+          role: user.role,
+          companyId: null,
+        },
+      });
+    }
+
+    const lastCompany = await Company.findOne().sort({ createdAt: -1 });
+    let nextNumber = 1;
+    if (lastCompany?.companyCode) {
+      const lastNumber = parseInt(lastCompany.companyCode.split("-")[1], 10);
+      if (Number.isFinite(lastNumber)) nextNumber = lastNumber + 1;
+    }
+    const companyCode = `COMP-${String(nextNumber).padStart(4, "0")}`;
 
     const company = await Company.create({
   companyCode,

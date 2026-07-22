@@ -1,6 +1,7 @@
 ﻿const bcrypt=require("bcryptjs"),mongoose=require("mongoose");
 const Company=require("../models/Company"),User=require("../models/User"),Labour=require("../models/Labour"),Site=require("../models/Site"),Attendance=require("../models/Attendance"),LabourPayment=require("../models/LabourPayment"),SalarySlip=require("../models/SalarySlip"),SiteInvoice=require("../models/SiteInvoice");
 const Skill=require("../models/Skill"),LabourSite=require("../models/LabourSite"),PayrollSetting=require("../models/PayrollSetting"),SalaryPayment=require("../models/SalaryPayment");
+const Quotation=require("../models/Quotation");
 const generateEmployeeCode=require("../utils/generateEmployeeCode");
 const cleanUser="-password -resetOtp -resetOtpExpire -isResetOtpVerified";
 const activeCompany={isDeleted:{$ne:true}};
@@ -50,6 +51,7 @@ const resources={
   "salary-slips":{model:SalarySlip,date:"createdAt",search:[],populate:[["companyId","companyCode companyName"],["labourId","name labourCode"],["skillId","skillName skillCode"]]},
   "salary-payments":{model:SalaryPayment,date:"paymentDate",search:["remarks"],populate:[["companyId","companyCode companyName"],["labourId","name labourCode"],["salaryId","month year status"]]},
   invoices:{model:SiteInvoice,date:"issueDate",search:["invoiceNumber","siteName","clientName"],populate:[["companyId","companyCode companyName"],["siteId","siteName siteCode"]]},
+  quotations:{model:Quotation,date:"issueDate",search:["quotationNumber","siteName","clientName","subject"],populate:[["companyId","companyCode companyName"],["siteId","siteName siteCode location"]]},
   skills:{model:Skill,date:"createdAt",search:["skillName","skillCode"],populate:[["companyId","companyCode companyName"]]},
   "labour-sites":{model:LabourSite,date:"createdAt",search:[],populate:[["companyId","companyCode companyName"],["labourId","name labourCode"],["siteId","siteName siteCode"],["supervisorId","name employeeCode"]]},
   "payroll-settings":{model:PayrollSetting,date:"createdAt",search:[],populate:[["companyId","companyCode companyName"],["contractorId","name employeeCode"]]}

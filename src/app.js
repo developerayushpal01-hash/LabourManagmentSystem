@@ -18,6 +18,8 @@ const salarySlipRoutes = require("./routes/salarySlip.routes")
 const siteInvoiceRoutes = require("./routes/siteInvoice.routes")
 const superAdminRoutes = require("./routes/superAdmin.routes")
 const subscriptionRoutes = require("./routes/subscription.routes")
+const quotationRoutes = require("./routes/quotation.routes")
+const notificationRoutes = require("./routes/notification.routes")
 const cors = require("cors");
 
 
@@ -84,6 +86,8 @@ app.use("/api/payroll-settings", payrollSettingRoutes);
 app.use("/api/salaryslip", salarySlipRoutes);
 
 app.use("/api/site-invoices", siteInvoiceRoutes);
+app.use("/api/quotations", quotationRoutes);
+app.use("/api/notifications", notificationRoutes);
 
 app.use("/api/super-admin", superAdminRoutes);
 app.use("/api/subscriptions", subscriptionRoutes);

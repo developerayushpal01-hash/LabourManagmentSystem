@@ -133,6 +133,9 @@ const createLabour = async (req, res) => {
         message: "Skill not found or inactive",
       });
     }
+    if (skill.gender && skill.gender !== "ALL" && skill.gender !== gender) {
+      return res.status(400).json({ success: false, message: "Selected skill rate is not applicable to this labour gender" });
+    }
 
     // Site validation
     const site = await Site.findOne({
@@ -343,7 +346,6 @@ const updateLabour = async (req, res) => {
         message: "Labour name, mobile, skill, site and gender are required",
       });
     }
-
     const normalizedName = String(name).trim();
     const normalizedMobile = String(mobile).trim();
 
@@ -375,6 +377,9 @@ const updateLabour = async (req, res) => {
           success: false,
           message: "Skill not found or inactive",
         });
+      }
+      if (skill.gender && skill.gender !== "ALL" && skill.gender !== gender) {
+        return res.status(400).json({ success: false, message: "Selected skill rate is not applicable to this labour gender" });
       }
     }
 

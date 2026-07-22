@@ -36,6 +36,12 @@ const skillSchema = new mongoose.Schema(
       default: 0,
     },
 
+    gender: {
+      type: String,
+      enum: ["ALL", "MALE", "FEMALE", "OTHER"],
+      default: "ALL",
+    },
+
     overtimeRate: {
       type: Number,
       default: null,
