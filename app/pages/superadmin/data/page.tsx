@@ -1,7 +1,7 @@
 import Link from "next/link"
 
 const resources = [
-  ["labours", "Labour Profiles", "Workers, skills, wages and contact records"], ["sites", "Project Sites", "Sites, clients, locations and status"], ["attendance", "Attendance", "Cross-company daily attendance records"], ["payments", "Labour Payments", "Advance, bonus, incentive and deductions"], ["salary-slips", "Salary Slips", "Calculated payroll, deductions and balances"], ["salary-payments", "Salary Payments", "Salary settlement transaction history"], ["invoices", "Invoices", "Billing, GST, paid and outstanding amounts"], ["skills", "Skill Masters", "Company skill and wage configurations"], ["labour-sites", "Labour Assignments", "Labour-to-site and supervisor mappings"], ["payroll-settings", "Payroll Settings", "PF, ESIC, OT and rounding rules"],
+  ["labours", "Labour Profiles", "Workers, skills, wages and contact records"], ["sites", "Project Sites", "Sites, clients, locations and status"], ["attendance", "Attendance", "Cross-company daily attendance records"], ["payments", "Labour Payments", "Advance, bonus, incentive and deductions"], ["salary-slips", "Salary Slips", "Calculated payroll, deductions and balances"], ["salary-payments", "Salary Payments", "Salary settlement transaction history"], ["invoices", "Invoices", "Billing, GST, paid and outstanding amounts"], ["quotations", "Quotations", "Site proposals, validity, tax and quoted totals"], ["skills", "Skill Masters", "Gender-wise company skill and wage configurations"], ["labour-sites", "Labour Assignments", "Labour-to-site and supervisor mappings"], ["payroll-settings", "Payroll Settings", "PF, ESIC, OT and rounding rules"],
 ]
 
 export default function PlatformDataPage() {

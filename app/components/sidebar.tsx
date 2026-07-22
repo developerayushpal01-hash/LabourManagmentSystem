@@ -14,6 +14,7 @@ const menu = [
   { id: "attendance", label: "Attendance", href: "/pages/contractorpages/attendance" },
   { id: "salary", label: "Salary", href: "/pages/contractorpages/payroll" },
   { id: "invoices", label: "Invoices", href: "/pages/contractorpages/invoices" },
+  { id: "quotations", label: "Quotations", href: "/pages/contractorpages/quotations" },
   { id: "reports", label: "Reports", href: "/pages/contractorpages/reports" },
   { id: "subscription", label: "Subscription", href: "/pages/subscription" },
   { id: "profile", label: "Profile", href: "/pages/profile" },
@@ -57,6 +58,7 @@ const Icon = ({ name, active = false }: { name: string; active?: boolean }) => {
         <Image src="/assets/payroll.png" alt="Payroll" width={22} height={16} className="h-5 w-5 object-contain" style={iconStyle} />
       )
     case "invoices":
+    case "quotations":
       return (
         <Image src="/assets/reports.png" alt="Invoices" width={20} height={20} className="h-5 w-5 object-contain" style={iconStyle} />
       )

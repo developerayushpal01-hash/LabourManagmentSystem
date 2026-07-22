@@ -247,3 +247,72 @@ html:is(.dark, [data-theme="dark"]) .users-page a.border-slate-300 {
 html:is(.dark, [data-theme="dark"]) .super-admin-app main table thead { background: rgba(31, 28, 62, .92) !important; color: #b9b4d2 !important; }
 html:is(.dark, [data-theme="dark"]) .super-admin-app main table tbody tr { border-color: rgba(65, 73, 108, .6) !important; }
 html:is(.dark, [data-theme="dark"]) .super-admin-app main table tbody tr:hover { background: rgba(124, 58, 237, .11) !important; }
+
+/* Shared data-table language: matches the contractor Labour register.
+   Attendance, salary/payroll and printable document tables intentionally opt out. */
+main table:not([style]):not(#attendance-report-table):not(#salary-report-table):not(.min-w-max):not([class*="2550px"]):not([class*="850px"]):not(:has(input[type="checkbox"])):not(:has(thead tr.bg-indigo-700)) {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  color: #0f172a;
+}
+main table:not([style]):not(#attendance-report-table):not(#salary-report-table):not(.min-w-max):not([class*="2550px"]):not([class*="850px"]):not(:has(input[type="checkbox"])):not(:has(thead tr.bg-indigo-700)) thead {
+  background: #f8fafc !important;
+  color: #64748b !important;
+  font-size: 10px !important;
+  font-weight: 700;
+  letter-spacing: .035em;
+  text-transform: uppercase;
+}
+main table:not([style]):not(#attendance-report-table):not(#salary-report-table):not(.min-w-max):not([class*="2550px"]):not([class*="850px"]):not(:has(input[type="checkbox"])):not(:has(thead tr.bg-indigo-700)) thead th {
+  height: 42px;
+  padding: .75rem 1.25rem !important;
+  border: 0 !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+main table:not([style]):not(#attendance-report-table):not(#salary-report-table):not(.min-w-max):not([class*="2550px"]):not([class*="850px"]):not(:has(input[type="checkbox"])):not(:has(thead tr.bg-indigo-700)) tbody tr {
+  min-height: 68px;
+  border-bottom: 1px solid #edf1f7 !important;
+  background: #fff;
+  transition: background-color 150ms ease;
+}
+main table:not([style]):not(#attendance-report-table):not(#salary-report-table):not(.min-w-max):not([class*="2550px"]):not([class*="850px"]):not(:has(input[type="checkbox"])):not(:has(thead tr.bg-indigo-700)) tbody tr:last-child {
+  border-bottom: 0 !important;
+}
+main table:not([style]):not(#attendance-report-table):not(#salary-report-table):not(.min-w-max):not([class*="2550px"]):not([class*="850px"]):not(:has(input[type="checkbox"])):not(:has(thead tr.bg-indigo-700)) tbody tr:hover {
+  background: #f8fafc !important;
+}
+main table:not([style]):not(#attendance-report-table):not(#salary-report-table):not(.min-w-max):not([class*="2550px"]):not([class*="850px"]):not(:has(input[type="checkbox"])):not(:has(thead tr.bg-indigo-700)) tbody td {
+  height: 68px;
+  padding: 1rem 1.25rem !important;
+  border: 0 !important;
+  vertical-align: middle;
+}
+main .overflow-x-auto:has(> table:not([style])) {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+html:is(.dark, [data-theme="dark"]) main table:not([style]):not(#attendance-report-table):not(#salary-report-table):not(.min-w-max):not([class*="2550px"]):not([class*="850px"]):not(:has(input[type="checkbox"])) thead {
+  background: rgba(31, 28, 62, .92) !important;
+  color: #b9b4d2 !important;
+}
+html:is(.dark, [data-theme="dark"]) main table:not([style]):not(#attendance-report-table):not(#salary-report-table):not(.min-w-max):not([class*="2550px"]):not([class*="850px"]):not(:has(input[type="checkbox"])) tbody tr {
+  border-color: rgba(65, 73, 108, .6) !important;
+  background: rgba(15, 20, 38, .84);
+}
+html:is(.dark, [data-theme="dark"]) main table:not([style]):not(#attendance-report-table):not(#salary-report-table):not(.min-w-max):not([class*="2550px"]):not([class*="850px"]):not(:has(input[type="checkbox"])) tbody tr:hover {
+  background: rgba(124, 58, 237, .11) !important;
+}
+
+/* Keep the Super Admin menu scrollable without showing its scrollbar. */
+.super-admin-app > aside {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.super-admin-app > aside::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}

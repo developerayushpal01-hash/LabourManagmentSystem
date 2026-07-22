@@ -13,11 +13,12 @@ type Skill = {
   skillCode?: string
   defaultDailyWage: number
   otRatePerHour: number
+  gender: "ALL" | "MALE" | "FEMALE" | "OTHER"
   status: "ACTIVE" | "INACTIVE"
 }
 type Api<T> = { success: boolean; data?: T; message?: string }
-type Form = { skillName: string; skillCode: string; defaultDailyWage: string; otRatePerHour: string; status: Skill["status"] }
-const emptyForm: Form = { skillName: "", skillCode: "", defaultDailyWage: "", otRatePerHour: "0", status: "ACTIVE" }
+type Form = { skillName: string; skillCode: string; defaultDailyWage: string; otRatePerHour: string; gender: Skill["gender"]; status: Skill["status"] }
+const emptyForm: Form = { skillName: "", skillCode: "", defaultDailyWage: "", otRatePerHour: "0", gender: "ALL", status: "ACTIVE" }
 const input = "mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
 
 export default function SkillsPage() {
@@ -54,7 +55,7 @@ export default function SkillsPage() {
 
   const startEdit = (skill: Skill) => {
     setEditing(skill)
-    setForm({ skillName: skill.skillName, skillCode: skill.skillCode || "", defaultDailyWage: String(skill.defaultDailyWage), otRatePerHour: String(skill.otRatePerHour || 0), status: skill.status })
+    setForm({ skillName: skill.skillName, skillCode: skill.skillCode || "", defaultDailyWage: String(skill.defaultDailyWage), otRatePerHour: String(skill.otRatePerHour || 0), gender: skill.gender || "ALL", status: skill.status })
   }
   const reset = () => { setEditing(null); setForm(emptyForm) }
 
@@ -103,6 +104,7 @@ export default function SkillsPage() {
           <div className="mt-4 space-y-4">
             <label className="block text-xs font-semibold text-slate-600">Skill Name *<input required value={form.skillName} onChange={(e)=>setForm({...form,skillName:e.target.value})} className={input} placeholder="e.g. Electrician" /></label>
             <label className="block text-xs font-semibold text-slate-600">Skill Code<input value={form.skillCode} onChange={(e)=>setForm({...form,skillCode:e.target.value.toUpperCase()})} className={input} placeholder="e.g. ELEC" /></label>
+            <label className="block text-xs font-semibold text-slate-600">Applicable Gender *<select required value={form.gender} onChange={(e)=>setForm({...form,gender:e.target.value as Skill["gender"]})} className={input}><option value="ALL">All genders — same rate</option><option value="MALE">Male / Gents</option><option value="FEMALE">Female / Ladies</option><option value="OTHER">Other</option></select></label>
             <label className="block text-xs font-semibold text-slate-600">Default Daily Wage *<input required type="number" min="1" value={form.defaultDailyWage} onChange={(e)=>setForm({...form,defaultDailyWage:e.target.value})} className={input} /></label>
             <label className="block text-xs font-semibold text-slate-600">OT Rate / Hour<input type="number" min="0" value={form.otRatePerHour} onChange={(e)=>setForm({...form,otRatePerHour:e.target.value})} className={input} /></label>
             {editing && <label className="block text-xs font-semibold text-slate-600">Status<select value={form.status} onChange={(e)=>setForm({...form,status:e.target.value as Skill["status"]})} className={input}><option value="ACTIVE">Active</option><option value="INACTIVE">Inactive</option></select></label>}
@@ -110,7 +112,7 @@ export default function SkillsPage() {
           <div className="mt-5 flex gap-2">{editing && <button type="button" onClick={reset} className="h-10 flex-1 rounded-md border border-slate-300 text-sm font-semibold text-slate-600">Cancel</button>}<button disabled={saving} className="h-10 flex-1 rounded-md bg-indigo-700 px-4 text-sm font-semibold text-white disabled:opacity-50">{saving ? "Saving..." : editing ? "Update Skill" : "Add Skill"}</button></div>
         </form>
         <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm"><div className="border-b border-slate-200 px-5 py-4"><h2 className="text-sm font-bold">All Skills</h2><p className="mt-1 text-xs text-slate-500">{skills.length} skill{skills.length === 1 ? "" : "s"} configured</p></div>
-          <div className="overflow-x-auto"><table className="w-full min-w-[650px] text-left text-sm"><thead className="bg-slate-50 text-[10px] uppercase text-slate-500"><tr>{["Skill","Code","Daily Wage","OT / Hour","Status","Actions"].map((h)=><th key={h} className="border-b px-5 py-3">{h}</th>)}</tr></thead><tbody>{skills.map((skill)=><tr key={skill._id} className="border-b border-slate-100 hover:bg-slate-50"><td className="px-5 py-4 font-semibold text-slate-900">{skill.skillName}</td><td className="px-5 py-4 text-slate-500">{skill.skillCode || "-"}</td><td className="px-5 py-4 font-semibold">₹{Number(skill.defaultDailyWage).toLocaleString("en-IN")}</td><td className="px-5 py-4">₹{Number(skill.otRatePerHour || 0).toLocaleString("en-IN")}</td><td className="px-5 py-4"><span className={`rounded-full px-2 py-1 text-[9px] font-bold ${skill.status === "ACTIVE" ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-600"}`}>{skill.status}</span></td><td className="px-5 py-4"><div className="flex gap-2"><button onClick={()=>startEdit(skill)} className="rounded-md border border-indigo-200 px-3 py-1.5 text-xs font-semibold text-indigo-700">Edit</button><button onClick={()=>void remove(skill)} disabled={deletingId===skill._id} className="rounded-md border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 disabled:opacity-50">{deletingId===skill._id?"Deleting...":"Delete"}</button></div></td></tr>)}</tbody></table></div>
+          <div className="overflow-x-auto"><table className="w-full min-w-[720px] text-left text-sm"><thead className="bg-slate-50 text-[10px] uppercase text-slate-500"><tr>{["Skill","Gender","Code","Daily Wage","OT / Hour","Status","Actions"].map((h)=><th key={h} className="border-b px-5 py-3">{h}</th>)}</tr></thead><tbody>{skills.map((skill)=><tr key={skill._id} className="border-b border-slate-100 hover:bg-slate-50"><td className="px-5 py-4 font-semibold text-slate-900">{skill.skillName}</td><td className="px-5 py-4"><span className="rounded-full bg-violet-50 px-2 py-1 text-[10px] font-bold text-violet-700">{skill.gender==="ALL"?"ALL":skill.gender}</span></td><td className="px-5 py-4 text-slate-500">{skill.skillCode || "-"}</td><td className="px-5 py-4 font-semibold">₹{Number(skill.defaultDailyWage).toLocaleString("en-IN")}</td><td className="px-5 py-4">₹{Number(skill.otRatePerHour || 0).toLocaleString("en-IN")}</td><td className="px-5 py-4"><span className={`rounded-full px-2 py-1 text-[9px] font-bold ${skill.status === "ACTIVE" ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-600"}`}>{skill.status}</span></td><td className="px-5 py-4"><div className="flex gap-2"><button onClick={()=>startEdit(skill)} className="rounded-md border border-indigo-200 px-3 py-1.5 text-xs font-semibold text-indigo-700">Edit</button><button onClick={()=>void remove(skill)} disabled={deletingId===skill._id} className="rounded-md border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 disabled:opacity-50">{deletingId===skill._id?"Deleting...":"Delete"}</button></div></td></tr>)}</tbody></table></div>
           {!skills.length && <p className="p-12 text-center text-sm text-slate-500">No skills configured yet.</p>}
         </section>
       </div>}

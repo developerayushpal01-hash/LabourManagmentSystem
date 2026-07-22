@@ -1,6 +1,5 @@
 "use client"
 
-import Image from "next/image"
 import Link from "next/link"
 import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
@@ -22,21 +21,28 @@ type MeResponse = {
   user?: AuthenticatedUser
   message?: string
 }
+type Notice={_id:string;title:string;message:string;type:string;actionLabel?:string;actionUrl?:string;scheduledAt:string;isRead:boolean}
+type NoticeResponse={success:boolean;data?:Notice[];unread?:number}
 
 const Navbar = () => {
   const router = useRouter()
   const { showToast } = useToast()
   const profileMenuRef = useRef<HTMLDivElement>(null)
+  const notificationRef = useRef<HTMLDivElement>(null)
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false)
   const [isLoggingOut, setIsLoggingOut] = useState(false)
   const [logoutError, setLogoutError] = useState("")
   const [user, setUser] = useState<AuthenticatedUser | null>(null)
+  const [notices,setNotices]=useState<Notice[]>([])
+  const [unread,setUnread]=useState(0)
+  const [notificationsOpen,setNotificationsOpen]=useState(false)
 
   useEffect(() => {
     const closeMenu = (event: MouseEvent) => {
       if (profileMenuRef.current && !profileMenuRef.current.contains(event.target as Node)) {
         setIsProfileMenuOpen(false)
       }
+      if (notificationRef.current && !notificationRef.current.contains(event.target as Node)) setNotificationsOpen(false)
     }
 
     const closeOnEscape = (event: KeyboardEvent) => {
@@ -85,6 +91,10 @@ const Navbar = () => {
 
     return () => controller.abort()
   }, [router])
+  const loadNotifications=async()=>{try{const response=await fetch(apiUrl("/notifications"),{credentials:"include",cache:"no-store"});const result=await response.json() as NoticeResponse;if(!response.ok||!result.success)throw new Error("Notifications load failed");setNotices(result.data||[]);setUnread(result.unread||0)}catch(requestError){if(requestError instanceof Error)console.error(requestError.message)}}
+  useEffect(()=>{void loadNotifications();const refresh=()=>void loadNotifications();const id=window.setInterval(refresh,5000);window.addEventListener("focus",refresh);return()=>{window.clearInterval(id);window.removeEventListener("focus",refresh)}},[])
+  const markRead=async(notice:Notice)=>{if(!notice.isRead){await fetch(apiUrl(`/notifications/${notice._id}/read`),{method:"PATCH",credentials:"include"});setNotices(current=>current.map(item=>item._id===notice._id?{...item,isRead:true}:item));setUnread(value=>Math.max(0,value-1))}if(notice.actionUrl){setNotificationsOpen(false);router.push(notice.actionUrl)}}
+  const markAllRead=async()=>{await fetch(apiUrl("/notifications/read-all"),{method:"PATCH",credentials:"include"});setNotices(current=>current.map(item=>({...item,isRead:true})));setUnread(0)}
   const handleLogout = async () => {
     setLogoutError("")
     setIsLoggingOut(true)
@@ -151,10 +161,7 @@ const Navbar = () => {
       </div>
 
       <div className="flex items-center gap-4">
-        <button type="button" aria-label="Notifications" className="relative rounded-full p-2 hover:bg-gray-100">
-          <Image src="/assets/notification.png" alt="" width={16} height={20} className="h-5 w-5 object-contain" />
-          <span className="absolute -right-0.5 -top-0.5 inline-block h-2 w-2 rounded-full bg-red-500" />
-        </button>
+        <div ref={notificationRef} className="relative"><button type="button" aria-label={`${unread} unread notifications`} onClick={()=>{setNotificationsOpen(value=>!value);void loadNotifications()}} className="relative rounded-full p-2 hover:bg-gray-100"><svg aria-hidden="true" className="h-5 w-5 text-slate-600" viewBox="0 0 24 24" fill="none"><path d="M18 9a6 6 0 1 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>{unread>0&&<span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white">{unread>99?"99+":unread}</span>}</button>{notificationsOpen&&<div className="absolute right-0 top-full mt-3 w-[360px] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl"><div className="flex items-center justify-between border-b px-4 py-3"><div><h2 className="text-sm font-bold">Notifications</h2><p className="text-[10px] text-slate-500">{unread} unread</p></div>{unread>0&&<button onClick={()=>void markAllRead()} className="text-xs font-semibold text-indigo-600">Mark all read</button>}</div><div className="max-h-96 overflow-y-auto">{notices.map(notice=><button key={notice._id} onClick={()=>void markRead(notice)} className={`block w-full border-b px-4 py-3 text-left hover:bg-slate-50 ${notice.isRead?"bg-white":"bg-indigo-50/60"}`}><div className="flex items-start gap-3"><span className={`mt-1 h-2 w-2 shrink-0 rounded-full ${notice.isRead?"bg-slate-300":"bg-indigo-600"}`}/><div><p className="text-sm font-bold text-slate-800">{notice.title}</p><p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-500">{notice.message}</p><p className="mt-1 text-[9px] text-slate-400">{new Date(notice.scheduledAt).toLocaleString("en-IN")}</p></div></div></button>)}{!notices.length&&<p className="p-8 text-center text-sm text-slate-500">No notifications.</p>}</div></div>}</div>
 
         <div className="h-6 w-px bg-gray-300" />
 

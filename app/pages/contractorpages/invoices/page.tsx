@@ -8,7 +8,7 @@ import Sidebar from "@/app/components/sidebar"
 import { useToast } from "@/app/components/toast-provider"
 import { apiUrl } from "@/lib/api"
 
-type Site = { _id: string; siteName: string }
+type Site = { _id: string; siteName: string; location?: string; addressLine?: string; city?: string; district?: string; state?: string; pincode?: string }
 type InvoiceLine = { description: string; hsnSacCode: string; quantity: number; rate: number; amount: number }
 type Invoice = {
   _id: string
@@ -44,6 +44,7 @@ type Invoice = {
   declarationText?: string
   supplierGstNumber?: string
   buyerGstNumber?: string
+  companyName?: string
 }
 type Api<T> = { success: boolean; data?: T; message?: string }
 
@@ -51,9 +52,12 @@ const money = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR
 const date = new Intl.DateTimeFormat("en-IN", { dateStyle: "medium" })
 const invoiceDate=(value:string)=>new Date(value).toLocaleDateString("en-GB")
 const invoiceAmount=new Intl.NumberFormat("en-IN",{maximumFractionDigits:2})
+const siteAddress=(site:Site|string)=>typeof site==="string"?"":[site.addressLine,site.city,site.district,site.state,site.pincode].filter(Boolean).join(", ")||site.location||""
 const billMonth=(value:string)=>new Date(value).toLocaleDateString("en-US",{month:"short",year:"numeric"})
 const compactInvoiceNumber=(value:string)=>value.replace(/^INV-\d{2}(\d{2})-(\d{2})-(.+)$/,"$1-$2/$3")
-const invoiceNumberSize=(value:string)=>{const length=`Invoice No. GST/${compactInvoiceNumber(value)}`.length;return length<=26?12:length<=31?10:8}
+const companyInitials=(name="")=>{const words=name.match(/[A-Za-z0-9]+/g)||[];return words.map((word,index)=>index===0&&word.length<=6&&word===word.toUpperCase()?word:word[0]).join("").toUpperCase()||"CMP"}
+const displayInvoiceNumber=(value:string,name="")=>value.startsWith("INV-")?`${companyInitials(name)}/${compactInvoiceNumber(value)}`:value.replace(/^[A-Z0-9]+(?=-\\d{4}-\\d{2}-)/,companyInitials(name))
+const invoiceNumberSize=(value:string,name="")=>{const length=`Invoice No. ${displayInvoiceNumber(value,name)}`.length;return length<=26?12:length<=31?10:8}
 const amountInWords=(value:number)=>{
   const ones=["","One","Two","Three","Four","Five","Six","Seven","Eight","Nine","Ten","Eleven","Twelve","Thirteen","Fourteen","Fifteen","Sixteen","Seventeen","Eighteen","Nineteen"]
   const tens=["","","Twenty","Thirty","Forty","Fifty","Sixty","Seventy","Eighty","Ninety"]
@@ -139,7 +143,7 @@ export default function InvoiceManagementPage() {
       const x = (await r.json()) as Api<Invoice>
       if (!r.ok || !x.success || !x.data) throw new Error(x.message || "Payment update failed.")
       setInvoices((c) => c.map((i) => (i._id === x.data!._id ? x.data! : i)))
-      setSelected(x.data)
+      setSelected({ ...x.data, siteId: selected.siteId })
       setPaid(String(x.data.paidAmount || 0))
       showToast("Invoice payment updated.", "success")
     } catch (e) {
@@ -272,7 +276,7 @@ export default function InvoiceManagementPage() {
                 <tbody>
                   {rows.map((i) => (
                     <tr key={i._id} className="text-xs hover:bg-slate-50">
-                      <td className="border-b px-4 py-3 font-bold text-indigo-700">{i.invoiceNumber}</td>
+                      <td className="border-b px-4 py-3 font-bold text-indigo-700">{displayInvoiceNumber(i.invoiceNumber,i.companyName)}</td>
                       <td className="border-b px-4">
                         <strong>{i.siteName}</strong>
                         <span className="block text-[9px] text-slate-400">{i.clientName}</span>
@@ -371,13 +375,13 @@ export default function InvoiceManagementPage() {
                     <tbody>
                       <tr><th colSpan={3} style={{border:"1px solid #000",padding:"5px",fontSize:"20px",lineHeight:"24px",textAlign:"center",fontWeight:"bold"}}>Invoice</th></tr>
                       <tr><td colSpan={2} style={{border:"1px solid #000",padding:"4px",fontWeight:"bold"}}>Bill Month :- {billMonth(selected.billingFrom)}</td><td style={{border:"1px solid #000",padding:"4px",fontWeight:"bold",whiteSpace:"nowrap"}}>Bill Period : {invoiceDate(selected.billingFrom)} to {invoiceDate(selected.billingTo)}</td></tr>
-                      <tr><td rowSpan={6} style={{border:"1px solid #000",padding:"4px",verticalAlign:"top",lineHeight:"1.65"}}><strong>AL Gosar Enterprises</strong><br/>Bairagi Colony , Ward No.10 , Pithampur<br/>Dist : Dhar ( M.P.) 454775<br/>GST No. {selected.supplierGstNumber || "23CFVPG6126B1ZN"}<br/>PAN No: CFVPG6126B<br/>State : Madhya Pradesh<br/>E- Mail : gosarenterprises8@gmail.com</td><td style={{border:"1px solid #000",padding:"3px",whiteSpace:"nowrap",overflow:"hidden",fontSize:`${invoiceNumberSize(selected.invoiceNumber)}px`,letterSpacing:"-0.2px",fontWeight:"bold"}}>Invoice No. GST/{compactInvoiceNumber(selected.invoiceNumber)}</td><td style={{border:"1px solid #000",padding:"3px",whiteSpace:"nowrap"}}>Date : {invoiceDate(selected.issueDate)}</td></tr>
+                      <tr><td rowSpan={6} style={{border:"1px solid #000",padding:"4px",verticalAlign:"top",lineHeight:"1.65"}}><strong>AL Gosar Enterprises</strong><br/>Bairagi Colony , Ward No.10 , Pithampur<br/>Dist : Dhar ( M.P.) 454775<br/>GST No. {selected.supplierGstNumber || "23CFVPG6126B1ZN"}<br/>PAN No: CFVPG6126B<br/>State : Madhya Pradesh<br/>E- Mail : gosarenterprises8@gmail.com</td><td style={{border:"1px solid #000",padding:"3px",whiteSpace:"nowrap",overflow:"hidden",fontSize:`${invoiceNumberSize(selected.invoiceNumber,selected.companyName)}px`,letterSpacing:"-0.2px",fontWeight:"bold"}}>Invoice No. {displayInvoiceNumber(selected.invoiceNumber,selected.companyName)}</td><td style={{border:"1px solid #000",padding:"3px",whiteSpace:"nowrap"}}>Date : {invoiceDate(selected.issueDate)}</td></tr>
                       <tr><td style={{border:"1px solid #000",padding:"3px"}}>Deliver Note</td><td style={{border:"1px solid #000",padding:"3px"}}>Mode / Terms of Payment</td></tr>
                       <tr><td style={{border:"1px solid #000",padding:"3px"}}>Supplier&apos;s Ref.</td><td style={{border:"1px solid #000",padding:"3px"}}>Dated</td></tr>
                       <tr><td style={{border:"1px solid #000",padding:"3px"}}>Vender Code</td><td style={{border:"1px solid #000",padding:"3px"}}>422045</td></tr>
                       <tr><td style={{border:"1px solid #000",padding:"3px"}}>Buyer&apos;s order No.</td><td style={{border:"1px solid #000",padding:"3px",whiteSpace:"nowrap"}}>Destination : PITHAMPUR</td></tr>
                       <tr><td style={{border:"1px solid #000",padding:"3px"}}>LUT No.</td><td style={{border:"1px solid #000",padding:"3px"}}>AD230425013203T</td></tr>
-                      <tr><td style={{border:"1px solid #000",padding:"4px",verticalAlign:"top",lineHeight:"1.65"}}><strong>Buyers &amp; Consignee</strong><br/><strong>{selected.clientName}</strong><br/>{selected.siteName}<br/>GSTIN : {selected.buyerGstNumber || "N/A"}</td><td colSpan={2} style={{border:"1px solid #000",padding:"4px",verticalAlign:"top"}}>Terms Of Delivery :- 10 days after invoice</td></tr>
+                      <tr><td style={{border:"1px solid #000",padding:"4px",verticalAlign:"top",lineHeight:"1.65"}}><strong>Buyers &amp; Consignee</strong><br/><strong>{selected.siteName}</strong>{siteAddress(selected.siteId)&&<><br/><span>{siteAddress(selected.siteId)}</span></>}<br/>GSTIN : {selected.buyerGstNumber || "N/A"}</td><td colSpan={2} style={{border:"1px solid #000",padding:"4px",verticalAlign:"top"}}>Terms Of Delivery :- 10 days after invoice</td></tr>
                     </tbody>
                   </table>
                   {/* Items Table */}

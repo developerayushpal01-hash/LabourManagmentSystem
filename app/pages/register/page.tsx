@@ -21,7 +21,7 @@ type RegisterForm = {
   pincode: string
   country: string
 }
-type RegisterResponse = { success: boolean; message?: string }
+type RegisterResponse = { success: boolean; message?: string; user?: { role?: string } }
 
 const initialForm: RegisterForm = {
   companyName: "", ownerName: "", email: "", mobile: "", password: "",
@@ -69,7 +69,7 @@ export default function RegisterPage() {
       const result = (await response.json()) as RegisterResponse
       if (!response.ok || !result.success) throw new Error(result.message ?? "Registration failed. Please try again.")
       showToast(result.message ?? "Registration successful.", "success")
-      router.push("/")
+      router.push(result.user?.role === "SUPER_ADMIN" ? "/pages/superadmin" : "/")
       router.refresh()
     } catch (requestError) {
       const message = requestError instanceof Error ? requestError.message : "Registration failed. Please try again."
