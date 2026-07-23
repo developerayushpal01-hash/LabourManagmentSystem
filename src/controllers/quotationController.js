@@ -38,14 +38,15 @@ exports.create = async (req, res) => {
     const items = rows.map((row) => {
       const description = String(row.description || "").trim(), quantity = Number(row.quantity), rate = Number(row.rate);
       if (!description || !Number.isFinite(quantity) || quantity <= 0 || !Number.isFinite(rate) || rate < 0) throw Object.assign(new Error("Every item needs a description, valid quantity and rate"), { statusCode: 400 });
-      return { description: description.slice(0, 250), unit: String(row.unit || "Nos").slice(0, 30), quantity: round(quantity), rate: round(rate), amount: round(quantity * rate) };
+      return { description: description.slice(0, 250), unit: String(row.unit || "Nos").slice(0, 30), quantity: round(quantity), rate: round(rate), amount: round(quantity * rate), remark: String(row.remark || "").trim().slice(0, 120) };
     });
     const discountPercent = Number(req.body.discountPercent || 0), gstPercent = Number(req.body.gstPercent || 0);
     if (![discountPercent, gstPercent].every((n) => Number.isFinite(n) && n >= 0 && n <= 100)) return res.status(400).json({ success: false, message: "Discount and GST must be between 0 and 100" });
     const validUntil = new Date(req.body.validUntil);
     if (Number.isNaN(validUntil.getTime())) return res.status(400).json({ success: false, message: "Valid until date is required" });
     const subtotal = round(items.reduce((sum, item) => sum + item.amount, 0)), discountAmount = round(subtotal * discountPercent / 100), taxableAmount = round(subtotal - discountAmount), gstAmount = round(taxableAmount * gstPercent / 100);
-    const data = await Quotation.create({ ...scope(req), quotationNumber: await number(req), siteId: site._id, siteName: site.siteName, siteCode: site.siteCode || "", clientName: site.clientName || "Client", issueDate: req.body.issueDate || new Date(), validUntil, subject: subject.slice(0, 250), items, subtotal, discountPercent, discountAmount, taxableAmount, gstPercent, gstAmount, totalAmount: round(taxableAmount + gstAmount), status: req.body.status === "SENT" ? "SENT" : "DRAFT", notes: req.body.notes || "", terms: req.body.terms || undefined, createdBy: req.user._id, isDeleted: false });
+    const clientAddress = [site.addressLine, site.city, site.district, site.state, site.pincode].filter(Boolean).join(", ") || site.location || "";
+    const data = await Quotation.create({ ...scope(req), quotationNumber: await number(req), siteId: site._id, siteName: site.siteName, siteCode: site.siteCode || "", clientName: site.clientName || "Client", clientAddress, issueDate: req.body.issueDate || new Date(), validUntil, subject: subject.slice(0, 250), items, subtotal, discountPercent, discountAmount, taxableAmount, gstPercent, gstAmount, totalAmount: round(taxableAmount + gstAmount), status: req.body.status === "SENT" ? "SENT" : "DRAFT", notes: req.body.notes || "", terms: req.body.terms || undefined, createdBy: req.user._id, isDeleted: false });
     res.status(201).json({ success: true, message: "Quotation created successfully", data });
   } catch (error) { res.status(error.statusCode || (error.code === 11000 ? 409 : 500)).json({ success: false, message: error.code === 11000 ? "Quotation number conflict, please try again" : error.message }); }
 };

@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const controller = require("../controllers/salaryController");
-const { downloadSalarySlipPdf } = require("../controllers/salarySlipPdfController");
+const { downloadSalarySlipPdf, downloadSalarySlipExcel } = require("../controllers/salarySlipPdfController");
 const { verifyToken } = require("../middlewares/auth.middleware");
 const { authorizeRoles } = require("../middlewares/role.middleware");
 
@@ -13,6 +13,7 @@ router.post("/generate-slip", verifyToken, authorizeRoles("CONTRACTOR", "ACCOUNT
 router.post("/generate-slips", verifyToken, authorizeRoles("CONTRACTOR", "ACCOUNTANT"), controller.generateAllSalarySlips);
 router.post("/pay", verifyToken, authorizeRoles("CONTRACTOR", "ACCOUNTANT"), controller.paySalary);
 router.get("/slip/:id/pdf", verifyToken, authorizeRoles("CONTRACTOR", "ACCOUNTANT"), downloadSalarySlipPdf);
+router.get("/slip/:id/excel", verifyToken, authorizeRoles("CONTRACTOR", "ACCOUNTANT"), downloadSalarySlipExcel);
 router.get("/", verifyToken, authorizeRoles("CONTRACTOR", "ACCOUNTANT"), controller.getSalaries);
 router.get("/:id", verifyToken, authorizeRoles("CONTRACTOR", "ACCOUNTANT"), controller.getSalaryById);
 router.patch("/:id/finalize", verifyToken, authorizeRoles("CONTRACTOR"), controller.finalizeSalary);
