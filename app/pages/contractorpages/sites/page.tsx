@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
+import Image from "next/image"
 import Navbar from "@/app/components/navbar"
 import Sidebar from "@/app/components/sidebar"
 import { useToast } from "@/app/components/toast-provider"
@@ -81,6 +82,28 @@ const statusStyle: Record<SiteStatus, string> = {
   INACTIVE: "border-amber-200 bg-amber-50 text-amber-700",
   COMPLETED: "border-slate-200 bg-slate-100 text-slate-600",
 }
+
+type SiteStatIconName = "total" | "progress" | "value" | "alert"
+
+const siteStatIconSources: Record<SiteStatIconName, string> = {
+  total: "/assets/sites-total-reference.png",
+  progress: "/assets/sites-progress-reference.png",
+  value: "/assets/sites-value-reference.png",
+  alert: "/assets/sites-alert-reference.png",
+}
+
+const SiteStatIcon = ({ name }: { name: SiteStatIconName }) => (
+  <span className="relative block h-[68px] w-[68px] overflow-hidden" aria-hidden="true">
+    <Image
+      src={siteStatIconSources[name]}
+      alt=""
+      width={118}
+      height={118}
+      unoptimized
+      className="absolute -left-[25px] -top-[23px] h-[118px] w-[118px] max-w-none"
+    />
+  </span>
+)
 
 const toDateInput = (value?: string | null) => value ? value.slice(0, 10) : ""
 
@@ -291,20 +314,18 @@ const SitesPage = () => {
 
           <section className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             {[
-              { label: "Total Sites", value: sites.length, note: "All registered projects", icon: "S", color: "bg-indigo-50 text-indigo-700" },
-              { label: "Active Progress", value: activeSites, note: "Projects in progress", icon: "A", color: "bg-amber-50 text-amber-600" },
-              { label: "Total Value", value: compactCurrency.format(totalValue), note: "Combined project value", icon: "Rs", color: "bg-emerald-50 text-emerald-700" },
-              { label: "Urgent Alerts", value: urgentSites, note: "Ending within 30 days", icon: "!", color: "bg-red-50 text-red-600" },
+              { label: "Total Sites", value: sites.length, note: "All registered projects", icon: "total" as const },
+              { label: "Active Progress", value: activeSites, note: "Projects in progress", icon: "progress" as const },
+              { label: "Total Value", value: compactCurrency.format(totalValue), note: "Combined project value", icon: "value" as const },
+              { label: "Urgent Alerts", value: urgentSites, note: "Ending within 30 days", icon: "alert" as const },
             ].map((card) => (
-              <article key={card.label} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{card.label}</p>
-                    <strong className="mt-4 block text-2xl text-slate-950">{isLoading ? "--" : card.value}</strong>
-                  </div>
-                  <span className={`flex h-9 w-9 items-center justify-center rounded-md text-sm font-bold ${card.color}`}>{card.icon}</span>
+              <article key={card.label} className="min-h-[216px] rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="flex items-start">
+                  <SiteStatIcon name={card.icon} />
                 </div>
-                <p className="mt-2 text-[11px] text-slate-400">{card.note}</p>
+                <p className="mt-5 text-xs font-bold uppercase tracking-wide text-slate-500">{card.label}</p>
+                <strong className="mt-3 block text-3xl text-slate-950">{isLoading ? "--" : card.value}</strong>
+                <p className="mt-2 text-sm text-slate-400">{card.note}</p>
               </article>
             ))}
           </section>

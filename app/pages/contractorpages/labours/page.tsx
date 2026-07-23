@@ -111,6 +111,15 @@ const shortDate = new Intl.DateTimeFormat("en-IN", { day: "2-digit", month: "sho
 
 const initials = (name: string) => name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("")
 
+type LabourStatIconName = "labours" | "active" | "wage" | "action"
+const LabourStatIcon = ({ name }: { name: LabourStatIconName }) => {
+  const common = "h-8 w-8 overflow-visible"
+  if (name === "labours") return <svg aria-hidden="true" className={`${common} text-violet-700`} viewBox="0 0 32 32" fill="none"><circle cx="13" cy="10" r="5" fill="currentColor"/><circle cx="23" cy="12" r="4" fill="currentColor" opacity=".9"/><path d="M3 28v-3c0-5 4-8 10-8s10 3 10 8v3zM20 18c5 0 9 3 9 8v2h-5v-3c0-3-1.3-5.4-4-7z" fill="currentColor"/></svg>
+  if (name === "active") return <svg aria-hidden="true" className={`${common} text-emerald-600`} viewBox="0 0 32 32" fill="none"><circle cx="16" cy="7" r="4" fill="currentColor"/><path d="M10 16c0-4 2.5-6 6-6s6 2 6 6z" fill="currentColor"/><circle cx="5" cy="26" r="3" fill="currentColor"/><circle cx="16" cy="26" r="3" fill="currentColor"/><circle cx="27" cy="26" r="3" fill="currentColor"/><path d="M16 16v5M5 21h22M5 21v2M16 21v2M27 21v2" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round"/></svg>
+  if (name === "wage") return <svg aria-hidden="true" className={`${common} text-blue-600`} viewBox="0 0 32 32" fill="none"><rect x="4" y="2" width="18" height="27" rx="3" stroke="currentColor" strokeWidth="2.5"/><rect x="8" y="6" width="10" height="5" rx="1" stroke="currentColor" strokeWidth="2"/><path d="M8 16h2M15 16h2M8 21h2M15 21h2M8 26h2M15 26h2" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round"/><circle cx="24" cy="23" r="7" fill="white" stroke="currentColor" strokeWidth="2.2"/><text x="21.3" y="26" fill="currentColor" fontSize="9" fontWeight="700">₹</text></svg>
+  return <svg aria-hidden="true" className={`${common} text-rose-600`} viewBox="0 0 32 32" fill="none"><path d="M4 27V19h5v8M13.5 27V14h5v13M23 27V9h5v18" stroke="currentColor" strokeWidth="2.5" strokeLinejoin="round"/><path d="M4 13c6 1 11-2 16-7l4-4" stroke="currentColor" strokeWidth="2.7" strokeLinecap="round"/><path d="m19 3 5-1-1 5" stroke="currentColor" strokeWidth="2.7" strokeLinecap="round" strokeLinejoin="round"/></svg>
+}
+
 const LaboursPage = () => {
   const router = useRouter()
   const { showToast } = useToast()
@@ -443,16 +452,17 @@ const LaboursPage = () => {
 
           <section className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             {[
-              { label: "Total Labours", value: labours.length, note: `${activeCount} currently active`, color: "bg-indigo-100 text-indigo-700", icon: "L" },
-              { label: "Active Workforce", value: activeCount, note: `${labours.length ? Math.round((activeCount / labours.length) * 100) : 0}% of total`, color: "bg-emerald-100 text-emerald-700", icon: "A" },
-              { label: "Daily Wage Total", value: money.format(totalDailyWage), note: "Across all labours", color: "bg-sky-100 text-sky-700", icon: "INR" },
-              { label: "Action Needed", value: inactiveCount + blockedCount, note: `${blockedCount} blocked accounts`, color: "bg-red-100 text-red-700", icon: "!" },
+              { label: "Total Labours", value: labours.length, note: "Total workforce", detail: `${activeCount} active`, icon: "labours" as const, accent: "bg-violet-50", dot: "bg-violet-600", detailTone: "text-violet-600" },
+              { label: "Active Workforce", value: activeCount, note: "Currently working", detail: `${labours.length ? Math.round((activeCount / labours.length) * 100) : 0}% of total`, icon: "active" as const, accent: "bg-emerald-50", dot: "bg-emerald-500", detailTone: "text-emerald-600" },
+              { label: "Daily Wage Total", value: money.format(totalDailyWage), note: "Across all labours", detail: `${labours.length} wage profiles`, icon: "wage" as const, accent: "bg-blue-50", dot: "bg-blue-500", detailTone: "text-blue-600" },
+              { label: "Action Needed", value: inactiveCount + blockedCount, note: "Inactive or blocked", detail: `${blockedCount} blocked accounts`, icon: "action" as const, accent: "bg-rose-50", dot: "bg-rose-500", detailTone: "text-rose-600" },
             ].map((card) => (
-              <article key={card.label} className="min-h-36 rounded-md border border-slate-200 bg-white p-5 shadow-sm">
-                <div className={`flex h-9 min-w-9 w-fit items-center justify-center rounded px-2 text-xs font-bold ${card.color}`}>{card.icon}</div>
-                <p className="mt-4 text-xs font-semibold uppercase text-slate-500">{card.label}</p>
-                <strong className="mt-1 block text-xl text-slate-900">{isLoading ? "--" : card.value}</strong>
-                <p className="mt-1 text-xs text-slate-400">{card.note}</p>
+              <article key={card.label} className="min-h-60 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className={`flex h-14 w-14 items-center justify-center rounded-2xl ring-1 ring-inset ring-white/80 ${card.accent}`}><LabourStatIcon name={card.icon} /></div>
+                <p className="mt-5 text-xs font-bold uppercase tracking-wide text-slate-500">{card.label}</p>
+                <strong className="mt-2 block text-3xl text-slate-950">{isLoading ? "--" : card.value}</strong>
+                <p className="mt-4 flex items-center gap-2 text-sm text-slate-500"><i className={`h-2.5 w-2.5 rounded-full ${card.dot}`} />{card.note}</p>
+                <p className={`mt-7 flex items-center gap-2 text-sm font-medium ${card.detailTone}`}><span className="text-lg">⌁</span>{card.detail}</p>
               </article>
             ))}
           </section>

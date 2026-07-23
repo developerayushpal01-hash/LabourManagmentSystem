@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
+import Image from "next/image"
 import Navbar from "@/app/components/navbar"
 import Sidebar from "@/app/components/sidebar"
 import { useToast } from "@/app/components/toast-provider"
@@ -28,6 +29,28 @@ type UsersResponse = {
 }
 
 const PAGE_SIZE = 8
+
+type UsersStatIconName = "users" | "supervisor" | "accountant" | "active"
+
+const usersStatIconSources: Record<UsersStatIconName, string> = {
+  users: "/assets/users-stat-reference.png",
+  supervisor: "/assets/supervisor-stat-reference.png",
+  accountant: "/assets/accountant-stat-reference.png",
+  active: "/assets/active-rate-stat-reference.png",
+}
+
+const UsersStatIcon = ({ name }: { name: UsersStatIconName }) => (
+  <span className="relative block h-16 w-16 overflow-hidden" aria-hidden="true">
+    <Image
+      src={usersStatIconSources[name]}
+      alt=""
+      width={126}
+      height={126}
+      unoptimized
+      className="absolute -left-[31px] -top-[29px] h-[126px] w-[126px] max-w-none"
+    />
+  </span>
+)
 
 const initials = (name: string) =>
   name
@@ -172,18 +195,18 @@ const UsersPage = () => {
             </div>
           </div>
 
-          <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <section className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
             {[
-              { label: "Total Users", value: users.length, note: "Supervisors and accountants", color: "text-indigo-600", icon: "♙" },
-              { label: "Supervisors", value: supervisorCount, note: "Team supervisors", color: "text-slate-700", icon: "▦" },
-              { label: "Accountants", value: accountantCount, note: "Finance team members", color: "text-sky-600", icon: "▣" },
-              { label: "Active Rate", value: `${complianceRate}%`, note: `${activeCount} active accounts`, color: "text-emerald-600", icon: "✓" },
+              { label: "Total Users", value: users.length, note: "Supervisors and accountants", icon: "users" as const },
+              { label: "Supervisors", value: supervisorCount, note: "Team supervisors", icon: "supervisor" as const },
+              { label: "Accountants", value: accountantCount, note: "Finance team members", icon: "accountant" as const },
+              { label: "Active Rate", value: `${complianceRate}%`, note: `${activeCount} active accounts`, icon: "active" as const },
             ].map((card) => (
-              <article key={card.label} className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-                <div className={`mb-4 flex h-9 w-9 items-center justify-center rounded bg-slate-100 text-lg ${card.color}`}>{card.icon}</div>
-                <strong className="text-3xl font-bold text-slate-900">{isLoading ? "—" : card.value}</strong>
-                <p className="mt-1 text-sm font-semibold text-slate-700">{card.label}</p>
-                <p className="mt-1 text-xs text-slate-400">{card.note}</p>
+              <article key={card.label} className="min-h-[270px] rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
+                <div className="mb-12 h-16 w-16"><UsersStatIcon name={card.icon} /></div>
+                <strong className="block text-4xl font-bold leading-none text-slate-950">{isLoading ? "—" : card.value}</strong>
+                <p className="mt-5 text-lg font-bold text-slate-700">{card.label}</p>
+                <p className="mt-4 text-sm leading-6 text-slate-400">{card.note}</p>
               </article>
             ))}
           </section>

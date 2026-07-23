@@ -7,7 +7,8 @@ import { usePathname } from "next/navigation"
 
 const menu = [
   { id: "dashboard", label: "Dashboard", href: "/" },
-  { id: "users", label: "Users", href: "/pages/contractorpages/users" },
+  // Temporarily hidden: Contractor user-management module for creating Supervisors and Accountants.
+  // { id: "users", label: "Users", href: "/pages/contractorpages/users" },
   { id: "labours", label: "Labours", href: "/pages/contractorpages/labours" },
   { id: "skills", label: "Skills", href: "/pages/contractorpages/skills" },
   { id: "sites", label: "Sites", href: "/pages/contractorpages/sites" },
@@ -21,68 +22,24 @@ const menu = [
   { id: "settings", label: "Settings", href: "/pages/settings" },
 ]
 
-const Icon = ({ name, active = false }: { name: string; active?: boolean }) => {
-  const iconStyle = active
-    ? { filter: "brightness(0) saturate(100%) invert(22%) sepia(89%) saturate(3897%) hue-rotate(244deg) brightness(88%) contrast(101%)" }
-    : name === "dashboard"
-      ? { filter: "brightness(0) saturate(100%) invert(45%) sepia(8%) saturate(720%) hue-rotate(176deg) brightness(92%) contrast(85%)" }
-      : undefined
+const Icon = ({ name }: { name: string; active?: boolean }) => {
+  const base = "h-7 w-7 shrink-0"
   switch (name) {
-    case "dashboard":
-      return (
-        <Image src="/assets/dashboard.png" alt="Dashboard" width={20} height={20} className="h-5 w-5 object-contain" style={iconStyle} />
-      )
-    case "users":
-      return (
-        <Image src="/assets/users.png" alt="Users" width={22} height={16} className="h-5 w-5 object-contain" style={iconStyle} />
-      )
-    case "labours":
-      return (
-        <Image src="/assets/labours.png" alt="Labours" width={20} height={19} className="h-5 w-5 object-contain" style={iconStyle} />
-      )
-    case "skills":
-      return (
-        <svg aria-hidden="true" className="h-5 w-5" viewBox="0 0 24 24" fill="none"><path d="m14.7 6.3 3-3a4.2 4.2 0 0 1-5.4 5.4l-6.8 6.8a2.1 2.1 0 1 0 3 3l6.8-6.8a4.2 4.2 0 0 1 5.4-5.4l-3 3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
-      )
-    case "sites":
-      return (
-        <Image src="/assets/sites.png" alt="Sites" width={16} height={20} className="h-5 w-5 object-contain" style={iconStyle} />
-      )
-    case "attendance":
-      return (
-        <Image src="/assets/attendance.png" alt="Attendance" width={18} height={20} className="h-5 w-5 object-contain" style={iconStyle} />
-      )
-    case "salary":
-    case "payroll":
-      return (
-        <Image src="/assets/payroll.png" alt="Payroll" width={22} height={16} className="h-5 w-5 object-contain" style={iconStyle} />
-      )
-    case "invoices":
-    case "quotations":
-      return (
-        <Image src="/assets/reports.png" alt="Invoices" width={20} height={20} className="h-5 w-5 object-contain" style={iconStyle} />
-      )
-    case "advance":
-      return (
-        <Image src="/assets/advance.png" alt="Advance" width={22} height={16} className="h-5 w-5 object-contain" style={iconStyle} />
-      )
-    case "reports":
-      return (
-        <Image src="/assets/reports.png" alt="Reports" width={20} height={20} className="h-5 w-5 object-contain" style={iconStyle} />
-      )
-    case "subscription":
-      return <svg aria-hidden="true" className="h-5 w-5" viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="18" height="14" rx="2" stroke="currentColor" strokeWidth="1.8"/><path d="M3 9h18M7 15h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
-    case "profile":
-      return (
-        <Image src="/assets/profile.png" alt="Profile" width={20} height={20} className="h-5 w-5 object-contain" style={iconStyle} />
-      )
-    case "payroll-settings":
-    case "settings":
-      return (
-        <Image src="/assets/setting.png" alt="Settings" width={21} height={20} className="h-5 w-5 object-contain" style={iconStyle} />
-      )
-    default:
-      return null
+    case "dashboard": return <svg aria-hidden="true" className={base} viewBox="0 0 32 32"><rect x="3" y="3" width="11" height="11" rx="3" fill="#6366e8"/><rect x="18" y="3" width="11" height="11" rx="3" fill="#5865df"/><rect x="3" y="18" width="11" height="11" rx="3" fill="#5147d9"/><rect x="18.5" y="18.5" width="9" height="9" rx="2" fill="none" stroke="#5147d9" strokeWidth="3"/></svg>
+    case "users": return <svg aria-hidden="true" className={base} viewBox="0 0 32 32"><circle cx="12" cy="10" r="6" fill="#3478db"/><circle cx="23" cy="12" r="5" fill="#38a7ed"/><path d="M2 28v-3c0-6 4.5-10 10-10s10 4 10 10v3z" fill="#3478db"/><path d="M20 28v-3c0-3.6-1.3-6.5-3.4-8.5 1.7-1 3.7-1.5 5.6-1.5 4.5 0 7.8 3.5 7.8 8.5V28z" fill="#38a7ed"/></svg>
+    case "labours": return <span aria-hidden="true" className="relative flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden"><Image src="/assets/labours-reference.png" alt="" width={64} height={64} unoptimized className="absolute -left-5 -top-4 h-16 w-16 max-w-none" /></span>
+    case "skills": return <span aria-hidden="true" className="relative flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden"><Image src="/assets/skills-reference.png" alt="" width={60} height={60} unoptimized className="absolute -left-[17px] -top-[15px] h-[60px] w-[60px] max-w-none" /></span>
+    case "sites": return <svg aria-hidden="true" className={base} viewBox="0 0 32 32"><path d="M3 29V13h10v16z" fill="#1768bd"/><path d="M12 29V5h11v24z" fill="#267dcc"/><g fill="#dbeafe"><path d="M6 17h4v3H6zM6 23h4v3H6zM15 9h3v3h-3zM15 15h3v3h-3zM15 21h3v3h-3z"/></g><path d="M2 29c8-3 18-3 28 0" fill="none" stroke="#159447" strokeWidth="3"/><path d="M28 15c0 5-6 10-6 10s-6-5-6-10a6 6 0 1 1 12 0z" fill="#22c55e" stroke="#fff" strokeWidth="1.5"/><circle cx="22" cy="15" r="2" fill="#fff"/></svg>
+    case "attendance": return <svg aria-hidden="true" className={base} viewBox="0 0 32 32"><rect x="4" y="6" width="24" height="23" rx="4" fill="#fff" stroke="#14a26a" strokeWidth="3"/><path d="M4 12h24" stroke="#14a26a" strokeWidth="3"/><path d="M10 3v6M22 3v6" stroke="#14a26a" strokeWidth="3" strokeLinecap="round"/><path d="m10 20 4 4 8-9" fill="none" stroke="#15986b" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/></svg>
+    case "salary": case "payroll": return <svg aria-hidden="true" className={base} viewBox="0 0 32 32"><path d="M4 8h20a4 4 0 0 1 4 4v15a3 3 0 0 1-3 3H7a4 4 0 0 1-4-4V9z" fill="#10966b"/><path d="m7 9 16-6 3 9z" fill="#fbbf24"/><path d="M20 16h10v8H20a4 4 0 0 1 0-8z" fill="#087f5b"/><circle cx="22" cy="20" r="1.6" fill="#fff"/></svg>
+    case "invoices": return <svg aria-hidden="true" className={base} viewBox="0 0 32 32"><path d="M6 2h14l7 7v21H6z" fill="#2871d2"/><path d="M20 2v8h7" fill="#8cc4ff"/><text x="10" y="20" fill="#fff" fontSize="13" fontWeight="700">$</text><path d="M10 24h13M10 27h9" stroke="#dbeafe" strokeWidth="2"/></svg>
+    case "quotations": return <svg aria-hidden="true" className={base} viewBox="0 0 32 32"><path d="M6 2h14l7 7v21H6z" fill="#6550c7"/><path d="M20 2v8h7" fill="#a99ce8"/><path d="M10 14c0-3 2-5 5-5v3c-1 0-2 1-2 2h2v5h-5zm8 0c0-3 2-5 5-5v3c-1 0-2 1-2 2h2v5h-5z" fill="#fff"/><path d="M10 24h13M10 27h9" stroke="#ddd6fe" strokeWidth="2"/></svg>
+    case "reports": return <svg aria-hidden="true" className={base} viewBox="0 0 32 32"><path d="M15 3v12H3A12 12 0 0 1 15 3z" fill="#ff9f0a"/><path d="M17 3a12 12 0 0 1 12 12H17z" fill="#2684e8"/><path d="M15 17v12A12 12 0 0 1 4 19z" fill="#20b96b"/><path d="M19 18h3v11h-3zm5-4h3v15h-3zm5 8h3v7h-3z" fill="#437fea" stroke="#fff" strokeWidth=".6"/></svg>
+    case "subscription": return <svg aria-hidden="true" className={base} viewBox="0 0 32 32"><rect x="3" y="6" width="26" height="21" rx="4" fill="#6559df"/><path d="M3 11h26" stroke="#b9b5ff" strokeWidth="3"/><path d="m11 15 1.6 3.3 3.7.5-2.7 2.6.7 3.6-3.3-1.8L7.7 25l.7-3.6-2.7-2.6 3.7-.5z" fill="#fde047"/><path d="M20 21h5" stroke="#fff" strokeWidth="2" strokeLinecap="round"/></svg>
+    case "profile": return <svg aria-hidden="true" className={base} viewBox="0 0 32 32"><circle cx="16" cy="16" r="14" fill="#2874c9"/><circle cx="16" cy="11" r="5" fill="#fff"/><path d="M7 27c1-6 4-9 9-9s8 3 9 9" fill="#fff"/></svg>
+    case "payroll-settings": case "settings": return <svg aria-hidden="true" className={base} viewBox="0 0 32 32"><path d="m13 2 6 0 1 4 4 2 4-1 3 5-3 3v4l3 3-3 5-4-1-4 2-1 4h-6l-1-4-4-2-4 1-3-5 3-3v-4l-3-3 3-5 4 1 4-2z" fill="#475569"/><circle cx="16" cy="17" r="6" fill="#fff"/></svg>
+    case "advance": return <svg aria-hidden="true" className={base} viewBox="0 0 32 32"><circle cx="16" cy="16" r="13" fill="#10b981"/><path d="M10 16h12m-6-6v12" stroke="#fff" strokeWidth="3" strokeLinecap="round"/></svg>
+    default: return null
   }
 }
 
@@ -131,7 +88,9 @@ const Sidebar: React.FC = () => {
                 const reportItems = [
                   { label: "Reports Overview", href: "/pages/contractorpages/reports", active: pathname === m.href },
                   { label: "Attendance Report", href: "/pages/contractorpages/reports/attendance", active: pathname.startsWith(m.href + "/attendance") },
-                  { label: "Salary Report", href: "/pages/contractorpages/reports/salary", active: pathname.startsWith(m.href + "/salary") },
+                  { label: "Salary Report", href: "/pages/contractorpages/reports/salary", active: pathname.startsWith(m.href + "/salary") && !pathname.startsWith(m.href + "/salary-slips") },
+                  { label: "Salary Slips", href: "/pages/contractorpages/reports/salary-slips", active: pathname.startsWith(m.href + "/salary-slips") },
+                  { label: "PF & ESIC Report", href: "/pages/contractorpages/reports/pf-esic", active: pathname.startsWith(m.href + "/pf-esic") },
                   { label: "Payment Report", href: "/pages/contractorpages/reports/payments", active: pathname.startsWith(m.href + "/payments") },
                   { label: "Workforce Report", href: "/pages/contractorpages/reports/workforce", active: pathname.startsWith(m.href + "/workforce") },
                   { label: "GST Details", href: "/pages/contractorpages/reports/gst", active: pathname.startsWith(m.href + "/gst") },

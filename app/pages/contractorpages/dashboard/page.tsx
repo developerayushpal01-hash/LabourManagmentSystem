@@ -1,6 +1,5 @@
 ﻿"use client"
 
-import Image from "next/image"
 import Link from "next/link"
 import { useEffect, useMemo, useState } from "react"
 import { useToast } from "@/app/components/toast-provider"
@@ -36,7 +35,7 @@ type StatCardProps = {
   title: string
   value: string
   subtitle: string
-  icon: string
+  icon: "labour" | "site" | "present" | "pending" | "payable" | "advance" | "bonus" | "deduction"
   accent: string
   badge?: string
   progress?: number
@@ -57,6 +56,18 @@ const compactCurrencyFormatter = new Intl.NumberFormat("en-IN", {
 
 const CHART_COLORS = ["bg-emerald-500", "bg-rose-500", "bg-amber-500", "bg-sky-500", "bg-violet-500"]
 
+const DashboardStatIcon = ({ name }: { name: StatCardProps["icon"] }) => {
+  const common = "h-8 w-8 overflow-visible"
+  if (name === "labour") return <svg aria-hidden="true" className={`${common} text-violet-700`} viewBox="0 0 32 32" fill="none"><circle cx="16" cy="9" r="4" stroke="currentColor" strokeWidth="2.5"/><circle cx="7" cy="12" r="3" stroke="currentColor" strokeWidth="2.3"/><circle cx="25" cy="12" r="3" stroke="currentColor" strokeWidth="2.3"/><path d="M9 27v-3c0-5 3-8 7-8s7 3 7 8v3M2.5 26v-2c0-4 2-6 5-6M29.5 26v-2c0-4-2-6-5-6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/></svg>
+  if (name === "site") return <svg aria-hidden="true" className={`${common} text-blue-700`} viewBox="0 0 32 32" fill="none"><path d="M16 29s9-9 9-17a9 9 0 1 0-18 0c0 8 9 17 9 17z" stroke="currentColor" strokeWidth="2.5"/><circle cx="16" cy="12" r="3" stroke="currentColor" strokeWidth="2.5"/></svg>
+  if (name === "present") return <svg aria-hidden="true" className={`${common} text-blue-700`} viewBox="0 0 32 32" fill="none"><circle cx="12" cy="9" r="5" stroke="currentColor" strokeWidth="2.5"/><path d="M3 27v-3c0-5 4-8 9-8 2 0 4 .5 5.5 1.5" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/><circle cx="23" cy="22" r="7" stroke="currentColor" strokeWidth="2.5"/><path d="M23 18v4h3" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+  if (name === "pending") return <svg aria-hidden="true" className={`${common} text-rose-700`} viewBox="0 0 32 32" fill="none"><path d="M8 10V7a3 3 0 0 1 3-3h13v5H11a3 3 0 0 0-3 3v13a3 3 0 0 0 3 3h16a3 3 0 0 0 3-3V13a3 3 0 0 0-3-3z" stroke="currentColor" strokeWidth="2.5" strokeLinejoin="round"/><path d="M19 16h11v8H19a4 4 0 0 1 0-8z" stroke="currentColor" strokeWidth="2.5"/><text x="21" y="22.5" fill="currentColor" fontSize="7" fontWeight="700">₹</text></svg>
+  if (name === "payable") return <svg aria-hidden="true" className={`${common} text-indigo-700`} viewBox="0 0 32 32" fill="none"><rect x="5" y="9" width="22" height="15" rx="2" stroke="currentColor" strokeWidth="2.3"/><path d="M2 13V7h22M8 27h19" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round"/><circle cx="16" cy="16.5" r="4" stroke="currentColor" strokeWidth="2"/><text x="14" y="19" fill="currentColor" fontSize="7" fontWeight="700">₹</text></svg>
+  if (name === "advance") return <svg aria-hidden="true" className={`${common} text-amber-700`} viewBox="0 0 32 32" fill="none"><circle cx="21" cy="9" r="6" stroke="currentColor" strokeWidth="2.5"/><text x="18.5" y="12" fill="currentColor" fontSize="8" fontWeight="700">₹</text><path d="M3 25h5l4 3h10a4 4 0 0 0 4-4l-10-3-4-4-4 2H3" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+  if (name === "bonus") return <svg aria-hidden="true" className={`${common} text-green-700`} viewBox="0 0 32 32" fill="none"><rect x="4" y="13" width="24" height="16" rx="2" stroke="currentColor" strokeWidth="2.5"/><path d="M16 13v16M3 13h26v-5H3z" stroke="currentColor" strokeWidth="2.5"/><path d="M16 8c-5 0-8-1-8-4 4-1 7 0 8 4zm0 0c5 0 8-1 8-4-4-1-7 0-8 4z" stroke="currentColor" strokeWidth="2.3" strokeLinejoin="round"/></svg>
+  return <svg aria-hidden="true" className={`${common} text-rose-700`} viewBox="0 0 32 32" fill="none"><path d="M7 3h13l6 6v20H7z" stroke="currentColor" strokeWidth="2.5" strokeLinejoin="round"/><path d="M20 3v7h6M11 16h6M11 21h4" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round"/><circle cx="23" cy="23" r="6" fill="white" stroke="currentColor" strokeWidth="2.2"/><path d="m20.5 25.5 5-5M21 21h.01M25 25h.01" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
+}
+
 async function fetchDashboardApi<T>(endpoint: string, signal: AbortSignal): Promise<T> {
   const response = await fetch(apiUrl(endpoint), { credentials: "include", signal })
   const result = (await response.json()) as ApiResponse<T>
@@ -67,12 +78,12 @@ async function fetchDashboardApi<T>(endpoint: string, signal: AbortSignal): Prom
 }
 
 const StatCard = ({ title, value, subtitle, icon, accent, badge, progress }: StatCardProps) => (
-  <article className="relative rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+  <article className="relative min-h-52 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
     {badge && <span className="absolute right-4 top-4 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">{badge}</span>}
-    <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${accent}`}>
-      <Image src={icon} alt="" width={23} height={23} className="h-[23px] w-[23px] object-contain" />
+    <div className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl ring-1 ring-inset ring-white/80 ${accent}`}>
+      <DashboardStatIcon name={icon} />
     </div>
-    <p className="mt-4 text-xs font-bold uppercase tracking-wide text-slate-500">{title}</p>
+    <p className="mt-5 text-xs font-bold uppercase tracking-wide text-slate-500">{title}</p>
     <p className="mt-1 text-2xl font-bold text-slate-950">{value}</p>
     <p className="mt-1 text-sm text-slate-500">{subtitle}</p>
     {typeof progress === "number" && (
@@ -205,17 +216,17 @@ export default function ContractorDashboard() {
       ) : dashboard ? (
         <>
           <section className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
-            <StatCard title="Total Labour" value={numberFormatter.format(dashboard.totalLabour)} subtitle={`${numberFormatter.format(dashboard.activeLabour)} active personnel`} icon="/assets/users.png" accent="bg-purple-50" />
-            <StatCard title="Active Sites" value={numberFormatter.format(dashboard.activeSites)} subtitle="Currently active project sites" icon="/assets/sites.png" accent="bg-blue-50" badge="Active" />
-            <StatCard title="Present Today" value={numberFormatter.format(dashboard.todayPresent)} subtitle={`${dashboard.todayAbsent} absent Â· ${dashboard.todayHalfDay} half day`} icon="/assets/present_today.png" accent="bg-sky-50" progress={attendanceRate} />
-            <StatCard title="Pending Salary" value={currencyFormatter.format(dashboard.pendingSalary)} subtitle={`Paid this month: ${currencyFormatter.format(dashboard.salaryPaid)}`} icon="/assets/payroll.png" accent="bg-pink-50" />
+            <StatCard title="Total Labour" value={numberFormatter.format(dashboard.totalLabour)} subtitle={`${numberFormatter.format(dashboard.activeLabour)} active personnel`} icon="labour" accent="bg-purple-50" />
+            <StatCard title="Active Sites" value={numberFormatter.format(dashboard.activeSites)} subtitle="Currently active project sites" icon="site" accent="bg-blue-50" badge="Active" />
+            <StatCard title="Present Today" value={numberFormatter.format(dashboard.todayPresent)} subtitle={`${dashboard.todayAbsent} absent · ${dashboard.todayHalfDay} half day`} icon="present" accent="bg-sky-50" progress={attendanceRate} />
+            <StatCard title="Pending Salary" value={currencyFormatter.format(dashboard.pendingSalary)} subtitle={`Paid this month: ${currencyFormatter.format(dashboard.salaryPaid)}`} icon="pending" accent="bg-pink-50" />
           </section>
 
           <section className="mt-5 grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
-            <StatCard title="Monthly Payable" value={currencyFormatter.format(dashboard.monthlyPayable)} subtitle="Attendance and overtime earnings" icon="/assets/payroll.png" accent="bg-indigo-50" />
-            <StatCard title="Advance" value={currencyFormatter.format(dashboard.advance)} subtitle="Advance paid this month" icon="/assets/advance.png" accent="bg-amber-50" />
-            <StatCard title="Bonus & Incentive" value={currencyFormatter.format(dashboard.bonus + dashboard.incentive)} subtitle={`Bonus ${currencyFormatter.format(dashboard.bonus)} Â· Incentive ${currencyFormatter.format(dashboard.incentive)}`} icon="/assets/notification.png" accent="bg-emerald-50" />
-            <StatCard title="Deductions" value={currencyFormatter.format(dashboard.deduction)} subtitle="Total deductions this month" icon="/assets/reports.png" accent="bg-rose-50" />
+            <StatCard title="Monthly Payable" value={currencyFormatter.format(dashboard.monthlyPayable)} subtitle="Attendance and overtime earnings" icon="payable" accent="bg-indigo-50" />
+            <StatCard title="Advance" value={currencyFormatter.format(dashboard.advance)} subtitle="Advance paid this month" icon="advance" accent="bg-amber-50" />
+            <StatCard title="Bonus & Incentive" value={currencyFormatter.format(dashboard.bonus + dashboard.incentive)} subtitle={`Bonus ${currencyFormatter.format(dashboard.bonus)} · Incentive ${currencyFormatter.format(dashboard.incentive)}`} icon="bonus" accent="bg-emerald-50" />
+            <StatCard title="Deductions" value={currencyFormatter.format(dashboard.deduction)} subtitle="Total deductions this month" icon="deduction" accent="bg-rose-50" />
           </section>
         </>
       ) : (
