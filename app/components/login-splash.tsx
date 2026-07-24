@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import Image from "next/image"
 import { useEffect, useState } from "react"
@@ -36,7 +36,7 @@ export default function LoginSplash({ onComplete }: LoginSplashProps) {
     { type: "sites" as const, label: "SITES", position: "bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2" },
   ]
 
-  return <main className="relative flex min-h-screen overflow-hidden bg-[#080d1d] text-white" aria-busy="true" aria-label="Kinetic LMS is loading">
+  return <main className="fixed inset-0 z-[1000] flex min-h-screen overflow-hidden bg-[#080d1d] text-white" aria-busy="true" aria-label="Kinetic LMS is loading">
     <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(91,61,190,.22),transparent_45%)]" />
     <div className="m-auto flex w-full max-w-3xl flex-col items-center px-6 py-10">
       <div className="relative h-[min(64vw,520px)] w-[min(64vw,520px)] min-h-[310px] min-w-[310px]">

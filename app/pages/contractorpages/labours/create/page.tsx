@@ -1,116 +1,35 @@
-"use client"
-
-import PageLoader from "@/app/components/page-loader"
+﻿"use client"
 
 import { FormEvent, useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import Navbar from "@/app/components/navbar"
 import Sidebar from "@/app/components/sidebar"
+import PageLoader from "@/app/components/page-loader"
 import { useToast } from "@/app/components/toast-provider"
 import { apiUrl } from "@/lib/api"
 
 type Skill = { _id: string; skillName: string; defaultDailyWage?: number }
 type Site = { _id: string; siteName: string; siteCode?: string; status: string }
 type Api<T> = { success: boolean; data?: T; message?: string }
-type Form = { name: string; mobile: string; gender: string; dob: string; aadhaar: string; address: string; skillId: string; siteId: string; dailyWage: string; isPFApplicable: boolean; pfUanNumber: string; isESICApplicable: boolean; esicIpNumber: string }
-const initial: Form = { name: "", mobile: "", gender: "", dob: "", aadhaar: "", address: "", skillId: "", siteId: "", dailyWage: "", isPFApplicable: false, pfUanNumber: "", isESICApplicable: false, esicIpNumber: "" }
-const input = "mt-2 h-11 w-full rounded-md border border-slate-300 bg-white px-3 text-sm font-normal outline-none placeholder:text-slate-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+type Form = { name:string; mobile:string; gender:string; dob:string; aadhaarNumber:string; panNumber:string; address:string; skillId:string; siteId:string; dailyWage:string; bankAccountNumber:string; ifscCode:string; emergencyContactName:string; emergencyContactRelation:string; emergencyContactMobile:string; joiningDate:string; resignationDate:string; isPFApplicable:boolean; pfUanNumber:string; isESICApplicable:boolean; esicIpNumber:string }
+const initial:Form={name:"",mobile:"",gender:"",dob:"",aadhaarNumber:"",panNumber:"",address:"",skillId:"",siteId:"",dailyWage:"",bankAccountNumber:"",ifscCode:"",emergencyContactName:"",emergencyContactRelation:"",emergencyContactMobile:"",joiningDate:new Date().toISOString().slice(0,10),resignationDate:"",isPFApplicable:false,pfUanNumber:"",isESICApplicable:false,esicIpNumber:""}
+const input="mt-2 h-11 w-full rounded-md border border-slate-300 bg-white px-3 text-sm font-normal outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+const Field=({label,children}:{label:string;children:React.ReactNode})=><label className="block text-[11px] font-semibold text-slate-700">{label}{children}</label>
+const Section=({title,children}:{title:string;children:React.ReactNode})=><section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm sm:p-6"><h2 className="border-b border-slate-100 pb-3 text-sm font-bold text-slate-900">{title}</h2>{children}</section>
 
-function Title({ icon, children }: { icon: string; children: React.ReactNode }) {
-  return <h2 className="flex items-center gap-2 border-b border-slate-200 pb-3 text-sm font-bold text-slate-900"><span className="text-indigo-600">{icon}</span>{children}</h2>
+export default function CreateLabourPage(){
+ const router=useRouter(),{showToast}=useToast(); const [form,setForm]=useState(initial),[skills,setSkills]=useState<Skill[]>([]),[sites,setSites]=useState<Site[]>([]),[loading,setLoading]=useState(true),[saving,setSaving]=useState(false); const [photo,setPhoto]=useState<File|null>(null)
+ useEffect(()=>{const controller=new AbortController();Promise.all([fetch(apiUrl("/skills/get-skilles"),{credentials:"include",signal:controller.signal}),fetch(apiUrl("/sites/get-sites"),{credentials:"include",signal:controller.signal})]).then(async([a,b])=>{const x=await a.json() as Api<Skill[]>,y=await b.json() as Api<Site[]>;if(!a.ok||!x.success)throw new Error(x.message||"Skills could not be loaded");if(!b.ok||!y.success)throw new Error(y.message||"Sites could not be loaded");setSkills(x.data||[]);setSites((y.data||[]).filter(s=>s.status==="ACTIVE"))}).catch(e=>{if(e.name!=="AbortError")showToast(e.message,"error")}).finally(()=>setLoading(false));return()=>controller.abort()},[showToast])
+ const set=(key:keyof Form,value:string|boolean)=>setForm(current=>({...current,[key]:value}))
+ async function submit(event:FormEvent<HTMLFormElement>){event.preventDefault();setSaving(true);try{const data=new FormData();Object.entries(form).forEach(([key,value])=>data.append(key,String(value)));if(photo)data.append("photo",photo);const response=await fetch(apiUrl("/labours/create"),{method:"POST",credentials:"include",body:data});const result=await response.json() as Api<unknown>;if(!response.ok||!result.success)throw new Error(result.message||"Labour could not be registered");showToast(result.message||"Labour registered successfully","success");router.push("/pages/contractorpages/labours");router.refresh()}catch(e){showToast(e instanceof Error?e.message:"Labour could not be registered","error")}finally{setSaving(false)}}
+ if(loading)return <PageLoader label="Loading sites and skills" fullScreen />
+ return <div className="flex min-h-screen bg-[#f7f8fc]"><Sidebar/><div className="min-w-0 flex-1"><Navbar/><main className="mx-auto max-w-6xl p-4 sm:p-6 lg:p-7"><header className="mb-5"><p className="text-xs text-slate-500">Labours / <span className="text-indigo-600">Add Labour</span></p><h1 className="mt-2 text-2xl font-bold">Add Labour Registration</h1><p className="mt-1 text-sm text-slate-500">Employee code and QR code will be generated automatically.</p></header>
+ <form onSubmit={submit} className="space-y-5">
+  <Section title="Photo & Personal Details"><div className="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-3"><Field label="Photo (JPG/PNG/WEBP, max 2 MB)"><input type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>setPhoto(e.target.files?.[0]||null)} className={`${input} py-2`}/></Field><Field label="Full Name *"><input required value={form.name} onChange={e=>set("name",e.target.value)} className={input}/></Field><Field label="Mobile *"><input required inputMode="numeric" pattern="[0-9]+" value={form.mobile} onChange={e=>set("mobile",e.target.value.replace(/\D/g,""))} className={input}/></Field><Field label="Gender *"><select required value={form.gender} onChange={e=>set("gender",e.target.value)} className={input}><option value="">Select</option><option value="MALE">Male</option><option value="FEMALE">Female</option><option value="OTHER">Other</option></select></Field><Field label="Date of Birth"><input type="date" value={form.dob} onChange={e=>set("dob",e.target.value)} className={input}/></Field><Field label="Aadhaar"><input inputMode="numeric" pattern="[0-9]{12}" maxLength={12} value={form.aadhaarNumber} onChange={e=>set("aadhaarNumber",e.target.value.replace(/\D/g,"").slice(0,12))} className={input}/></Field><Field label="PAN"><input pattern="[A-Za-z]{5}[0-9]{4}[A-Za-z]" maxLength={10} value={form.panNumber} onChange={e=>set("panNumber",e.target.value.toUpperCase())} className={input}/></Field><Field label="Address"><input value={form.address} onChange={e=>set("address",e.target.value)} className={input}/></Field></div></Section>
+  <Section title="Employment & Skills"><div className="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-3"><Field label="Primary Skill *"><select required value={form.skillId} onChange={e=>{const id=e.target.value,w=skills.find(s=>s._id===id)?.defaultDailyWage;setForm(f=>({...f,skillId:id,dailyWage:w?.toString()||""}))}} className={input}><option value="">Select Skill</option>{skills.map(s=><option key={s._id} value={s._id}>{s.skillName}</option>)}</select></Field><Field label="Site *"><select required value={form.siteId} onChange={e=>set("siteId",e.target.value)} className={input}><option value="">Select Site</option>{sites.map(s=><option key={s._id} value={s._id}>{s.siteName}</option>)}</select></Field><Field label="Daily Wage"><input type="number" min="0" value={form.dailyWage} onChange={e=>set("dailyWage",e.target.value)} className={input}/></Field><Field label="Joining Date *"><input required type="date" value={form.joiningDate} onChange={e=>set("joiningDate",e.target.value)} className={input}/></Field><Field label="Resignation Date"><input type="date" min={form.joiningDate} value={form.resignationDate} onChange={e=>set("resignationDate",e.target.value)} className={input}/></Field></div></Section>
+  <Section title="Bank & Emergency Contact"><div className="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-3"><Field label="Bank Account"><input inputMode="numeric" pattern="[0-9]{9,18}" maxLength={18} value={form.bankAccountNumber} onChange={e=>set("bankAccountNumber",e.target.value.replace(/\D/g,""))} className={input}/></Field><Field label="IFSC"><input pattern="[A-Za-z]{4}0[A-Za-z0-9]{6}" maxLength={11} value={form.ifscCode} onChange={e=>set("ifscCode",e.target.value.toUpperCase())} className={input}/></Field><Field label="Emergency Contact Name"><input value={form.emergencyContactName} onChange={e=>set("emergencyContactName",e.target.value)} className={input}/></Field><Field label="Relation"><input value={form.emergencyContactRelation} onChange={e=>set("emergencyContactRelation",e.target.value)} className={input}/></Field><Field label="Emergency Mobile"><input inputMode="numeric" pattern="[0-9]{10}" maxLength={10} value={form.emergencyContactMobile} onChange={e=>set("emergencyContactMobile",e.target.value.replace(/\D/g,""))} className={input}/></Field></div></Section>
+  <Section title="UAN & ESIC"><div className="mt-5 grid gap-5 sm:grid-cols-2"><div><label className="flex items-center gap-2 text-sm font-semibold"><input type="checkbox" checked={form.isPFApplicable} onChange={e=>set("isPFApplicable",e.target.checked)}/> PF Applicable</label>{form.isPFApplicable&&<Field label="UAN Number *"><input required inputMode="numeric" pattern="[0-9]{12}" maxLength={12} value={form.pfUanNumber} onChange={e=>set("pfUanNumber",e.target.value.replace(/\D/g,"").slice(0,12))} className={input}/></Field>}</div><div><label className="flex items-center gap-2 text-sm font-semibold"><input type="checkbox" checked={form.isESICApplicable} onChange={e=>set("isESICApplicable",e.target.checked)}/> ESIC Applicable</label>{form.isESICApplicable&&<Field label="ESIC Number *"><input required inputMode="numeric" pattern="[0-9]{10}" maxLength={10} value={form.esicIpNumber} onChange={e=>set("esicIpNumber",e.target.value.replace(/\D/g,"").slice(0,10))} className={input}/></Field>}</div></div></Section>
+  <div className="flex justify-end gap-3"><Link href="/pages/contractorpages/labours" className="rounded-md border bg-white px-6 py-3 text-sm font-semibold">Cancel</Link><button disabled={saving} className="rounded-md bg-indigo-700 px-6 py-3 text-sm font-semibold text-white disabled:opacity-50">{saving?"Saving...":"Save Labour"}</button></div>
+ </form></main></div></div>
 }
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return <label className="block text-[11px] font-medium text-slate-700">{label}{children}</label>
-}
-
-export default function CreateLabourPage() {
-  const router = useRouter()
-  const { showToast } = useToast()
-  const [form, setForm] = useState<Form>(initial)
-  const [skills, setSkills] = useState<Skill[]>([])
-  const [sites, setSites] = useState<Site[]>([])
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [photo, setPhoto] = useState("")
-
-  useEffect(() => {
-    const controller = new AbortController()
-    Promise.all([
-      fetch(apiUrl("/skills/get-skilles"), { credentials: "include", signal: controller.signal }),
-      fetch(apiUrl("/sites/get-sites"), { credentials: "include", signal: controller.signal }),
-    ]).then(async ([skillResponse, siteResponse]) => {
-      const skillResult = await skillResponse.json() as Api<Skill[]>
-      const siteResult = await siteResponse.json() as Api<Site[]>
-      if (!skillResponse.ok || !skillResult.success) throw new Error(skillResult.message || "Skills could not be loaded.")
-      if (!siteResponse.ok || !siteResult.success) throw new Error(siteResult.message || "Sites could not be loaded.")
-      setSkills(skillResult.data || [])
-      setSites((siteResult.data || []).filter((site) => site.status === "ACTIVE"))
-    }).catch((error) => {
-      if (error instanceof Error && error.name !== "AbortError") showToast(error.message, "error")
-    }).finally(() => setLoading(false))
-    return () => controller.abort()
-  }, [showToast])
-
-  const changeSkill = (skillId: string) => {
-    const wage = skills.find((skill) => skill._id === skillId)?.defaultDailyWage
-    setForm((current) => ({ ...current, skillId, dailyWage: wage?.toString() || "" }))
-  }
-
-  const submit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    setSaving(true)
-    try {
-      const response = await fetch(apiUrl("/labours/create"), {
-        method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: form.name.trim(), mobile: form.mobile, gender: form.gender, dob: form.dob || null, address: form.address.trim(), skillId: form.skillId, siteId: form.siteId, dailyWage: form.dailyWage === "" ? null : Number(form.dailyWage), isPFApplicable: form.isPFApplicable, pfUanNumber: form.isPFApplicable ? form.pfUanNumber : null, isESICApplicable: form.isESICApplicable, esicIpNumber: form.isESICApplicable ? form.esicIpNumber : null }),
-      })
-      const result = await response.json() as Api<unknown>
-      if (!response.ok || !result.success) throw new Error(result.message || "Labour could not be registered.")
-      showToast(result.message || "Labour registered successfully.", "success")
-      router.push("/pages/contractorpages/labours")
-      router.refresh()
-    } catch (error) {
-      showToast(error instanceof Error ? error.message : "Labour could not be registered.", "error")
-    } finally { setSaving(false) }
-  }
-
-  if (loading) return <PageLoader label="Loading sites and skills" fullScreen />
-  return <div className="flex min-h-screen bg-[#f7f8fc]"><Sidebar /><div className="min-w-0 flex-1"><Navbar />
-    <main className="mx-auto max-w-7xl p-4 sm:p-6 lg:p-7">
-      <header className="mb-5"><p className="text-[11px] text-slate-500">Dashboard / Labours / <span className="font-semibold text-indigo-600">Add New Labour</span></p><h1 className="mt-2 text-2xl font-bold text-slate-950">Add New Labour Registration</h1><p className="mt-1 text-sm text-slate-500">Register a new worker into the system to track attendance and payroll.</p></header>
-      <form onSubmit={submit} className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-        <div className="space-y-7 p-5 sm:p-7">
-          <section><Title icon="o">Personal Details</Title>
-            <div className="mt-5 grid gap-5 md:grid-cols-2"><Field label="Labour Name"><input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Enter full name" className={input} /></Field><Field label="Mobile Number"><input required inputMode="numeric" pattern="[0-9]+" value={form.mobile} onChange={(e) => setForm({ ...form, mobile: e.target.value.replace(/\D/g, "") })} placeholder="+91 XXXXX XXXXX" className={input} /></Field></div>
-            <div className="mt-5 grid gap-5 md:grid-cols-3"><Field label="Gender"><select required value={form.gender} onChange={(e) => setForm({ ...form, gender: e.target.value })} className={input}><option value="">Select Gender</option><option value="MALE">Male</option><option value="FEMALE">Female</option><option value="OTHER">Other</option></select></Field><Field label="Date of Birth"><input type="date" max={new Date().toISOString().split("T")[0]} value={form.dob} onChange={(e) => setForm({ ...form, dob: e.target.value })} className={input} /></Field><Field label="Aadhaar Number (UIDAI) - optional"><input inputMode="numeric" maxLength={12} value={form.aadhaar} onChange={(e) => setForm({ ...form, aadhaar: e.target.value.replace(/\D/g, "") })} placeholder="0000 0000 0000" className={input} /></Field></div>
-            <div className="mt-5"><Field label="Address - optional"><input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="Enter residential address" className={input} /></Field></div>
-          </section>
-          <section><Title icon="[]">Employment &amp; Payroll</Title>
-            <div className="mt-5 grid gap-5 md:grid-cols-2"><Field label="Site / Location"><select required disabled={loading} value={form.siteId} onChange={(e) => setForm({ ...form, siteId: e.target.value })} className={input}><option value="">{loading ? "Loading sites..." : "Select Active Site"}</option>{sites.map((site) => <option key={site._id} value={site._id}>{site.siteName}{site.siteCode ? ` (${site.siteCode})` : ""}</option>)}</select></Field><Field label="Skill / Wage Type"><select required disabled={loading} value={form.skillId} onChange={(e) => changeSkill(e.target.value)} className={input}><option value="">{loading ? "Loading skills..." : "Select Labour Skill"}</option>{skills.map((skill) => <option key={skill._id} value={skill._id}>{skill.skillName}</option>)}</select></Field><Field label="Wage Amount (INR)"><input type="number" min="0" value={form.dailyWage} onChange={(e) => setForm({ ...form, dailyWage: e.target.value })} placeholder="Enter amount" className={input} /></Field><Field label="Payroll Basis"><div className="mt-2 grid h-11 grid-cols-2 gap-2"><span className="flex items-center justify-center rounded-md border-2 border-indigo-500 bg-indigo-50 text-xs font-semibold text-indigo-700">Daily Wage</span><span className="flex items-center justify-center rounded-md border border-slate-200 bg-slate-50 text-xs text-slate-400">Monthly Salary</span></div></Field></div>
-          </section>
-          <section><Title icon="%">PF &amp; ESIC Applicability</Title>
-            <p className="mt-3 text-[11px] text-slate-500">Enable only the statutory deductions applicable to this labour. Enabled benefits require their registration number.</p>
-            <div className="mt-5 grid gap-4 md:grid-cols-2">
-              <div className={`rounded-lg border p-4 ${form.isPFApplicable ? "border-indigo-300 bg-indigo-50/50" : "border-slate-200 bg-slate-50"}`}>
-                <div className="flex items-center justify-between gap-4"><div><h3 className="text-sm font-bold text-slate-800">Provident Fund (PF)</h3><p className="mt-1 text-[10px] text-slate-500">Employee and employer PF will be calculated.</p></div><button type="button" role="switch" aria-checked={form.isPFApplicable} onClick={() => setForm((current) => ({ ...current, isPFApplicable: !current.isPFApplicable, pfUanNumber: current.isPFApplicable ? "" : current.pfUanNumber }))} className={`relative h-6 w-11 rounded-full transition ${form.isPFApplicable ? "bg-indigo-600" : "bg-slate-300"}`}><span className={`absolute top-1 h-4 w-4 rounded-full bg-white shadow transition-all ${form.isPFApplicable ? "left-6" : "left-1"}`} /></button></div>
-                {form.isPFApplicable && <Field label="UAN Number *"><input required inputMode="numeric" pattern="[0-9]{12}" minLength={12} maxLength={12} value={form.pfUanNumber} onChange={(e) => setForm({ ...form, pfUanNumber: e.target.value.replace(/\D/g, "").slice(0, 12) })} placeholder="Enter 12-digit UAN" className={input} /><span className="mt-1 block text-[10px] text-slate-400">Exactly 12 digits required.</span></Field>}
-              </div>
-              <div className={`rounded-lg border p-4 ${form.isESICApplicable ? "border-sky-300 bg-sky-50/50" : "border-slate-200 bg-slate-50"}`}>
-                <div className="flex items-center justify-between gap-4"><div><h3 className="text-sm font-bold text-slate-800">ESIC</h3><p className="mt-1 text-[10px] text-slate-500">Employee and employer ESIC will be calculated.</p></div><button type="button" role="switch" aria-checked={form.isESICApplicable} onClick={() => setForm((current) => ({ ...current, isESICApplicable: !current.isESICApplicable, esicIpNumber: current.isESICApplicable ? "" : current.esicIpNumber }))} className={`relative h-6 w-11 rounded-full transition ${form.isESICApplicable ? "bg-sky-600" : "bg-slate-300"}`}><span className={`absolute top-1 h-4 w-4 rounded-full bg-white shadow transition-all ${form.isESICApplicable ? "left-6" : "left-1"}`} /></button></div>
-                {form.isESICApplicable && <Field label="ESIC IP Number *"><input required inputMode="numeric" pattern="[0-9]{10}" minLength={10} maxLength={10} value={form.esicIpNumber} onChange={(e) => setForm({ ...form, esicIpNumber: e.target.value.replace(/\D/g, "").slice(0, 10) })} placeholder="Enter 10-digit IP number" className={input} /><span className="mt-1 block text-[10px] text-slate-400">Exactly 10 digits required.</span></Field>}
-              </div>
-            </div>
-          </section>
-          <section><Title icon="[+]">Verification Documents <small className="font-normal text-slate-400">(optional)</small></Title>
-            <div className="mt-5 grid gap-5 md:grid-cols-2"><label className="flex min-h-52 cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-indigo-300 bg-slate-50 p-6 text-center hover:bg-indigo-50"><input type="file" accept="image/png,image/jpeg" className="sr-only" onChange={(e) => { const file = e.target.files?.[0]; if (!file) return; if (file.size > 2097152) { showToast("Photo must be smaller than 2 MB.", "error"); e.target.value = ""; return } setPhoto(file.name) }} /><span className="flex h-14 w-14 items-center justify-center rounded-xl bg-indigo-100 text-xl text-indigo-600">[+]</span><strong className="mt-4 text-xs">{photo || "Upload Labour Photo"}</strong><span className="mt-2 text-[10px] leading-5 text-slate-500">Click to browse or drag and drop<br />Max size: 2MB, JPG/PNG</span></label><div className="relative flex min-h-52 overflow-hidden rounded-lg bg-gradient-to-br from-slate-700 via-slate-500 to-indigo-300 p-6 text-white"><div className="absolute -right-10 -top-16 h-52 w-52 rounded-full bg-white/20 blur-2xl" /><div className="relative m-auto text-center"><span className="mx-auto flex h-14 w-14 items-center justify-center rounded-xl border border-white/40 bg-white/10 text-xl">ID</span><strong className="mt-4 block text-xs">Verify Identity via KYC</strong><span className="mt-1 block text-[10px] text-white/70">Document verification coming soon</span></div></div></div>
-            <p className="mt-3 text-[10px] text-slate-400">Photo and Aadhaar are not uploaded until document storage is enabled.</p>
-          </section>
-        </div>
-        <div className="flex justify-end gap-3 border-t border-slate-200 bg-slate-50 px-5 py-4 sm:px-7"><Link href="/pages/contractorpages/labours" className="flex h-10 items-center rounded-md border border-slate-300 bg-white px-6 text-sm font-medium text-slate-600">Cancel</Link><button disabled={saving || loading} className="h-10 rounded-md bg-indigo-700 px-6 text-sm font-semibold text-white hover:bg-indigo-800 disabled:opacity-50">{saving ? "Saving..." : "Save Registration"}</button></div>
-      </form>
-      <section className="mt-5 grid gap-4 md:grid-cols-3">{[{ title: "Secure Data", text: "Labour information follows strict privacy protocols.", color: "bg-emerald-100 text-emerald-700" }, { title: "Fast Processing", text: "Attendance and payroll are ready after saving.", color: "bg-amber-100 text-amber-700" }, { title: "Cloud Sync", text: "Data is available across sites and headquarters.", color: "bg-blue-100 text-blue-700" }].map((item) => <div key={item.title} className="flex gap-3 rounded-lg border border-slate-200 bg-white p-4"><span className={`flex h-10 w-10 items-center justify-center rounded-lg ${item.color}`}>*</span><div><h2 className="text-xs font-bold">{item.title}</h2><p className="mt-1 text-[10px] text-slate-500">{item.text}</p></div></div>)}</section>
-    </main>
-  </div></div>
-}
-

@@ -21,7 +21,7 @@ type RegisterForm = {
   pincode: string
   country: string
 }
-type RegisterResponse = { success: boolean; message?: string; user?: { role?: string } }
+type RegisterResponse = { success: boolean; message?: string; email?: string; user?: { role?: string } }
 
 const initialForm: RegisterForm = {
   companyName: "", ownerName: "", email: "", mobile: "", password: "",
@@ -38,6 +38,8 @@ export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [awaitingOtp, setAwaitingOtp] = useState(false)
+  const [otp, setOtp] = useState("")
 
   const updateField = (event: ChangeEvent<HTMLInputElement>) => {
     const { name, value } = event.target
@@ -48,6 +50,23 @@ export default function RegisterPage() {
     event.preventDefault()
     setError("")
     setIsSubmitting(true)
+    if (awaitingOtp) {
+      try {
+        const response = await fetch(apiUrl("/auth/register/verify-otp"), {
+          method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: form.email.trim(), otp }),
+        })
+        const result = (await response.json()) as RegisterResponse
+        if (!response.ok || !result.success) throw new Error(result.message ?? "OTP verification failed.")
+        showToast(result.message ?? "Email verified successfully.", "success")
+        router.push(result.user?.role === "SUPER_ADMIN" ? "/pages/superadmin" : "/")
+        router.refresh()
+      } catch (requestError) {
+        const message = requestError instanceof Error ? requestError.message : "OTP verification failed."
+        setError(message); showToast(message, "error")
+      } finally { setIsSubmitting(false) }
+      return
+    }
     const payload = {
       companyName: form.companyName.trim(),
       ownerName: form.ownerName.trim(),
@@ -169,11 +188,19 @@ export default function RegisterPage() {
                 <label className="block"><span className={labelClass}>Password</span><span className="relative block"><input name="password" type={showPassword ? "text" : "password"} autoComplete="new-password" minLength={8} required value={form.password} onChange={updateField} placeholder="Minimum 8 characters" className={`${inputClass} pr-12`} /><button type="button" aria-label={showPassword ? "Hide password" : "Show password"} onClick={() => setShowPassword((current) => !current)} className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-slate-400 hover:bg-white hover:text-indigo-600">{showPassword ? "Hide" : "Show"}</button></span></label>
               </fieldset>
 
+              {awaitingOtp && (
+                <fieldset className="rounded-2xl border border-indigo-200 bg-indigo-50/70 p-5">
+                  <legend className="px-2 text-sm font-black text-indigo-900">Verify your email</legend>
+                  <p className="mb-4 text-sm text-indigo-700">We sent a 6-digit OTP to <strong>{form.email}</strong>. It expires in 10 minutes.</p>
+                  <label><span className={labelClass}>Email OTP</span><input value={otp} onChange={(event) => setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))} inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} required autoFocus placeholder="Enter 6-digit OTP" className={`${inputClass} text-center text-lg font-bold tracking-[.5em]`} /></label>
+                  <button type="button" onClick={() => { setAwaitingOtp(false); setOtp(""); setError("") }} className="mt-3 text-xs font-bold text-indigo-700 hover:text-indigo-900">Edit details or resend OTP</button>
+                </fieldset>
+              )}
               {error && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 
               <div className="flex flex-col-reverse gap-3 border-t border-slate-100 pt-6 sm:flex-row">
                 <Link href="/pages/login" className="flex h-12 flex-1 items-center justify-center rounded-xl border border-slate-200 bg-white text-sm font-bold text-slate-600 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700">Back to login</Link>
-                <button type="submit" disabled={isSubmitting} className="group flex h-12 flex-[1.5] items-center justify-center gap-3 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 text-sm font-bold text-white shadow-lg shadow-indigo-200 transition duration-300 hover:-translate-y-0.5 hover:shadow-xl disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60">{isSubmitting ? <><span className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />Creating workspace...</> : <>Register company <span className="transition-transform group-hover:translate-x-1">&rarr;</span></>}</button>
+                <button type="submit" disabled={isSubmitting} className="group flex h-12 flex-[1.5] items-center justify-center gap-3 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 text-sm font-bold text-white shadow-lg shadow-indigo-200 transition duration-300 hover:-translate-y-0.5 hover:shadow-xl disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60">{isSubmitting ? <><span className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />{awaitingOtp ? "Verifying OTP..." : "Sending OTP..."}</> : <>{awaitingOtp ? "Verify OTP & register" : "Send email OTP"} <span className="transition-transform group-hover:translate-x-1">&rarr;</span></>}</button>
               </div>
             </form>
           </div>
@@ -184,5 +211,6 @@ export default function RegisterPage() {
     </main>
   )
 }
+
 
 

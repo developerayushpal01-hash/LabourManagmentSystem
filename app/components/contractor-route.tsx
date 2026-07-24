@@ -45,6 +45,9 @@ const ContractorRoute = ({ children }: ContractorRouteProps) => {
         }
 
         const shouldShowSplash = sessionStorage.getItem("kinetic-login-splash") === "1"
+        if (shouldShowSplash) {
+          ["/pages/contractorpages/labours", "/pages/contractorpages/attendance", "/pages/contractorpages/payroll", "/pages/contractorpages/sites"].forEach((route) => router.prefetch(route))
+        }
         if (shouldShowSplash) sessionStorage.removeItem("kinetic-login-splash")
         setSplashState(shouldShowSplash ? "show" : "skip")
         setIsAuthorized(true)
@@ -66,10 +69,16 @@ const ContractorRoute = ({ children }: ContractorRouteProps) => {
     return <PageLoader label="Checking secure access" fullScreen />
   }
 
-  if (splashState === "show") return <LoginSplash onComplete={finishSplash} />
+  if (splashState === "show") return <>
+    <div aria-hidden="true" className="pointer-events-none h-screen overflow-hidden">{children}</div>
+    <LoginSplash onComplete={finishSplash} />
+  </>
   if (splashState === "checking") return <PageLoader label="Preparing your workspace" fullScreen />
 
   return children
 }
 
 export default ContractorRoute
+
+
+

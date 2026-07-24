@@ -1,11 +1,11 @@
-"use client"
+﻿"use client"
 
 import { FormEvent, useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import Navbar from "@/app/components/navbar"
 import Sidebar from "@/app/components/sidebar"
 import { useToast } from "@/app/components/toast-provider"
-import { apiUrl } from "@/lib/api"
+import { API_BASE_URL, apiUrl } from "@/lib/api"
 import PageLoader from "@/app/components/page-loader"
 
 type Skill = {
@@ -26,6 +26,7 @@ type Site = {
 type Labour = {
   _id: string
   labourCode: string
+  photoUrl?: string | null
   name: string
   mobile: string
   gender: "MALE" | "FEMALE" | "OTHER"
@@ -108,6 +109,7 @@ const PAGE_SIZE = 10
 const emptyForm: LabourForm = { name: "", mobile: "", gender: "MALE", skillId: "", siteId: "", address: "", dailyWage: "" }
 const money = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 })
 const shortDate = new Intl.DateTimeFormat("en-IN", { day: "2-digit", month: "short", year: "numeric" })
+const backendOrigin = API_BASE_URL.replace(/\/api$/, "")
 
 const initials = (name: string) => name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("")
 
@@ -116,7 +118,7 @@ const LabourStatIcon = ({ name }: { name: LabourStatIconName }) => {
   const common = "h-8 w-8 overflow-visible"
   if (name === "labours") return <svg aria-hidden="true" className={`${common} text-violet-700`} viewBox="0 0 32 32" fill="none"><circle cx="13" cy="10" r="5" fill="currentColor"/><circle cx="23" cy="12" r="4" fill="currentColor" opacity=".9"/><path d="M3 28v-3c0-5 4-8 10-8s10 3 10 8v3zM20 18c5 0 9 3 9 8v2h-5v-3c0-3-1.3-5.4-4-7z" fill="currentColor"/></svg>
   if (name === "active") return <svg aria-hidden="true" className={`${common} text-emerald-600`} viewBox="0 0 32 32" fill="none"><circle cx="16" cy="7" r="4" fill="currentColor"/><path d="M10 16c0-4 2.5-6 6-6s6 2 6 6z" fill="currentColor"/><circle cx="5" cy="26" r="3" fill="currentColor"/><circle cx="16" cy="26" r="3" fill="currentColor"/><circle cx="27" cy="26" r="3" fill="currentColor"/><path d="M16 16v5M5 21h22M5 21v2M16 21v2M27 21v2" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round"/></svg>
-  if (name === "wage") return <svg aria-hidden="true" className={`${common} text-blue-600`} viewBox="0 0 32 32" fill="none"><rect x="4" y="2" width="18" height="27" rx="3" stroke="currentColor" strokeWidth="2.5"/><rect x="8" y="6" width="10" height="5" rx="1" stroke="currentColor" strokeWidth="2"/><path d="M8 16h2M15 16h2M8 21h2M15 21h2M8 26h2M15 26h2" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round"/><circle cx="24" cy="23" r="7" fill="white" stroke="currentColor" strokeWidth="2.2"/><text x="21.3" y="26" fill="currentColor" fontSize="9" fontWeight="700">₹</text></svg>
+  if (name === "wage") return <svg aria-hidden="true" className={`${common} text-blue-600`} viewBox="0 0 32 32" fill="none"><rect x="4" y="2" width="18" height="27" rx="3" stroke="currentColor" strokeWidth="2.5"/><rect x="8" y="6" width="10" height="5" rx="1" stroke="currentColor" strokeWidth="2"/><path d="M8 16h2M15 16h2M8 21h2M15 21h2M8 26h2M15 26h2" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round"/><circle cx="24" cy="23" r="7" fill="white" stroke="currentColor" strokeWidth="2.2"/><text x="21.3" y="26" fill="currentColor" fontSize="9" fontWeight="700">â‚¹</text></svg>
   return <svg aria-hidden="true" className={`${common} text-rose-600`} viewBox="0 0 32 32" fill="none"><path d="M4 27V19h5v8M13.5 27V14h5v13M23 27V9h5v18" stroke="currentColor" strokeWidth="2.5" strokeLinejoin="round"/><path d="M4 13c6 1 11-2 16-7l4-4" stroke="currentColor" strokeWidth="2.7" strokeLinecap="round"/><path d="m19 3 5-1-1 5" stroke="currentColor" strokeWidth="2.7" strokeLinecap="round" strokeLinejoin="round"/></svg>
 }
 
@@ -462,7 +464,7 @@ const LaboursPage = () => {
                 <p className="mt-5 text-xs font-bold uppercase tracking-wide text-slate-500">{card.label}</p>
                 <strong className="mt-2 block text-3xl text-slate-950">{isLoading ? "--" : card.value}</strong>
                 <p className="mt-4 flex items-center gap-2 text-sm text-slate-500"><i className={`h-2.5 w-2.5 rounded-full ${card.dot}`} />{card.note}</p>
-                <p className={`mt-7 flex items-center gap-2 text-sm font-medium ${card.detailTone}`}><span className="text-lg">⌁</span>{card.detail}</p>
+                <p className={`mt-7 flex items-center gap-2 text-sm font-medium ${card.detailTone}`}><span className="text-lg">âŒ</span>{card.detail}</p>
               </article>
             ))}
           </section>
@@ -489,7 +491,7 @@ const LaboursPage = () => {
                     <tr key={labour._id} className="text-sm hover:bg-slate-50">
                       <td className="px-5 py-4 text-xs text-slate-500">{String((currentPage - 1) * PAGE_SIZE + index + 1).padStart(3, "0")}</td>
                       <td className="px-5 py-4 text-xs font-semibold text-indigo-600">{labour.labourCode}</td>
-                      <td className="px-5 py-4"><div className="flex items-center gap-3"><span className="flex h-9 w-9 items-center justify-center rounded-md bg-indigo-100 text-xs font-bold text-indigo-700">{initials(labour.name)}</span><div><p className="font-semibold text-slate-800">{labour.name}</p><p className="text-xs text-slate-500">{labour.skillId?.skillName ?? "Skill not assigned"}</p></div></div></td>
+                      <td className="px-5 py-4"><div className="flex items-center gap-3">{labour.photoUrl ? <img src={`${backendOrigin}${labour.photoUrl}`} alt="" className="h-9 w-9 rounded-md object-cover" /> : <span className="flex h-9 w-9 items-center justify-center rounded-md bg-indigo-100 text-xs font-bold text-indigo-700">{initials(labour.name)}</span>}<div><p className="font-semibold text-slate-800">{labour.name}</p><p className="text-xs text-slate-500">{labour.skillId?.skillName ?? "Skill not assigned"}</p></div></div></td>
                       <td className="px-5 py-4"><p className="text-xs font-medium text-slate-700">{labour.site?.siteName ?? "Site not assigned"}</p><p className="mt-1 text-xs text-slate-400">{labour.site?.siteCode ?? ""}</p></td>
                       <td className="px-5 py-4 text-xs text-slate-700">{labour.mobile}</td>
                       <td className="px-5 py-4"><span className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${labour.status === "ACTIVE" ? "bg-emerald-100 text-emerald-700" : labour.status === "INACTIVE" ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700"}`}>{labour.status}</span></td>
@@ -540,7 +542,7 @@ const LaboursPage = () => {
               <div className="border-b border-slate-100 pb-3 sm:col-span-2"><h3 className="text-sm font-bold text-slate-900">Worker Information</h3><p className="mt-1 text-[10px] text-slate-400">Update personal, assignment and wage details.</p></div>
               <label className="text-xs font-semibold text-slate-600">Full name<input required value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} className="mt-1 h-10 w-full rounded-md border border-slate-300 px-3 text-sm font-normal outline-none focus:border-indigo-500" /></label>
               <label className="text-xs font-semibold text-slate-600">Mobile<input required type="tel" inputMode="numeric" pattern="[0-9]+" title="Enter numbers only" value={form.mobile} onChange={(event) => setForm({ ...form, mobile: event.target.value.replace(/\D/g, "") })} className="mt-1 h-10 w-full rounded-md border border-slate-300 px-3 text-sm font-normal outline-none focus:border-indigo-500" /></label>
-              <label className="text-xs font-semibold text-slate-600">Skill<select required value={form.skillId} onChange={(event) => {const skill=skills.find(item=>item._id===event.target.value);setForm({...form,skillId:event.target.value,dailyWage:skill?.defaultDailyWage?.toString()||""})}} className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm font-normal outline-none focus:border-indigo-500"><option value="">Select gender-matching skill</option>{skills.filter(skill=>!skill.gender||skill.gender==="ALL"||skill.gender===form.gender).map((skill) => <option key={skill._id} value={skill._id}>{skill.skillName} — {skill.gender||"ALL"} (₹{skill.defaultDailyWage||0})</option>)}</select></label>
+              <label className="text-xs font-semibold text-slate-600">Skill<select required value={form.skillId} onChange={(event) => {const skill=skills.find(item=>item._id===event.target.value);setForm({...form,skillId:event.target.value,dailyWage:skill?.defaultDailyWage?.toString()||""})}} className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm font-normal outline-none focus:border-indigo-500"><option value="">Select gender-matching skill</option>{skills.filter(skill=>!skill.gender||skill.gender==="ALL"||skill.gender===form.gender).map((skill) => <option key={skill._id} value={skill._id}>{skill.skillName} â€” {skill.gender||"ALL"} (â‚¹{skill.defaultDailyWage||0})</option>)}</select></label>
               {editingLabour?.site ? (
                 <label className="text-xs font-semibold text-slate-600">Assigned site<input readOnly value={editingLabour.site?.siteName ?? "Site not assigned"} className="mt-1 h-10 w-full cursor-not-allowed rounded-md border border-slate-200 bg-slate-100 px-3 text-sm font-normal text-slate-600" /><span className="mt-1 block text-[11px] font-normal text-slate-400">Site cannot be changed after assignment.</span></label>
               ) : (
@@ -563,7 +565,7 @@ const LaboursPage = () => {
             <form onSubmit={handleSubmit} className="grid gap-4 p-6 sm:grid-cols-2">
               <label className="text-xs font-semibold text-slate-600">Full name<input required value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} className="mt-1 h-10 w-full rounded-md border border-slate-300 px-3 text-sm font-normal outline-none focus:border-indigo-500" /></label>
               <label className="text-xs font-semibold text-slate-600">Mobile<input required type="tel" inputMode="numeric" pattern="[0-9]+" title="Enter numbers only" value={form.mobile} onChange={(event) => setForm({ ...form, mobile: event.target.value.replace(/\D/g, "") })} className="mt-1 h-10 w-full rounded-md border border-slate-300 px-3 text-sm font-normal outline-none focus:border-indigo-500" /></label>
-              <label className="text-xs font-semibold text-slate-600">Skill<select required value={form.skillId} onChange={(event) => {const skill=skills.find(item=>item._id===event.target.value);setForm({...form,skillId:event.target.value,dailyWage:skill?.defaultDailyWage?.toString()||""})}} className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm font-normal outline-none focus:border-indigo-500"><option value="">Select gender-matching skill</option>{skills.filter(skill=>!skill.gender||skill.gender==="ALL"||skill.gender===form.gender).map((skill) => <option key={skill._id} value={skill._id}>{skill.skillName} — {skill.gender||"ALL"} (₹{skill.defaultDailyWage||0})</option>)}</select></label>
+              <label className="text-xs font-semibold text-slate-600">Skill<select required value={form.skillId} onChange={(event) => {const skill=skills.find(item=>item._id===event.target.value);setForm({...form,skillId:event.target.value,dailyWage:skill?.defaultDailyWage?.toString()||""})}} className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm font-normal outline-none focus:border-indigo-500"><option value="">Select gender-matching skill</option>{skills.filter(skill=>!skill.gender||skill.gender==="ALL"||skill.gender===form.gender).map((skill) => <option key={skill._id} value={skill._id}>{skill.skillName} â€” {skill.gender||"ALL"} (â‚¹{skill.defaultDailyWage||0})</option>)}</select></label>
               <label className="text-xs font-semibold text-slate-600">Site<select required value={form.siteId} onChange={(event) => setForm({ ...form, siteId: event.target.value })} className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm font-normal outline-none focus:border-indigo-500"><option value="">Select site</option>{sites.filter((site) => site.status === "ACTIVE").map((site) => <option key={site._id} value={site._id}>{site.siteName}</option>)}</select></label>
               <label className="text-xs font-semibold text-slate-600">Gender<select required value={form.gender} onChange={(event) => setForm({ ...form, gender: event.target.value as Labour["gender"], skillId: "", dailyWage: "" })} className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm font-normal outline-none focus:border-indigo-500"><option value="MALE">Male</option><option value="FEMALE">Female</option><option value="OTHER">Other</option></select></label>
               <label className="text-xs font-semibold text-slate-600">Custom daily wage<input type="number" min="0" value={form.dailyWage} onChange={(event) => setForm({ ...form, dailyWage: event.target.value })} placeholder="Use skill default" className="mt-1 h-10 w-full rounded-md border border-slate-300 px-3 text-sm font-normal outline-none focus:border-indigo-500" /></label>
@@ -734,4 +736,5 @@ const LaboursPage = () => {
 }
 
 export default LaboursPage
+
 
