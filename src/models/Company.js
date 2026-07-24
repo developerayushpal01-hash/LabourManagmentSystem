@@ -7,6 +7,7 @@ const companySchema = new mongoose.Schema(
       unique: true,
       trim: true
     },
+    logoUrl: { type: String, trim: true, default: null },
     companyName: {
       type: String,
       required: true,
@@ -84,3 +85,4 @@ const companySchema = new mongoose.Schema(
 );
 
 module.exports = mongoose.model("Company", companySchema);
+

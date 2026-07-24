@@ -1,4 +1,4 @@
-const Company = require("../models/Company");
+﻿const Company = require("../models/Company");
 
 const getCompanyProfile = async (req, res) => {
   try {
@@ -28,7 +28,8 @@ const getCompanyProfile = async (req, res) => {
 
 const updateCompanyProfile = async (req, res) => {
   try {
-    const { companyName, ownerName, email, mobile, gstNumber, address } = req.body;
+    const { companyName, ownerName, email, mobile, gstNumber } = req.body;
+    const address = typeof req.body.address === "string" ? JSON.parse(req.body.address) : req.body.address;
 
     const company = await Company.findById(req.user.companyId);
 
@@ -43,7 +44,8 @@ const updateCompanyProfile = async (req, res) => {
     if (ownerName) company.ownerName = ownerName;
     if (email) company.email = email;
     if (mobile) company.mobile = mobile;
-    if (gstNumber) company.gstNumber = gstNumber;
+    if (gstNumber !== undefined) company.gstNumber = gstNumber;
+    if (req.file) company.logoUrl = `/uploads/companies/${req.file.filename}`;
 
     if (address) {
       company.address = {

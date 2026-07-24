@@ -1,8 +1,9 @@
-const express = require("express");
+﻿const express = require("express");
 const router = express.Router();
 
 const { verifyToken } = require("../middlewares/auth.middleware");
 const { authorizeRoles } = require("../middlewares/role.middleware");
+const { uploadCompanyLogo } = require("../middlewares/companyLogo.middleware");
 
 const {
   getCompanyProfile,
@@ -20,6 +21,7 @@ router.put(
   "/profile",
   verifyToken,
   authorizeRoles("CONTRACTOR"),
+  uploadCompanyLogo,
   updateCompanyProfile
 );
 

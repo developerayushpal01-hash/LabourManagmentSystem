@@ -2,6 +2,7 @@
 const Skill = require("../models/Skill");
 const Site = require("../models/Site");
 const LabourSite = require("../models/LabourSite");
+const QRCode = require("qrcode");
 
 const getContractorId = (user) =>
   user.role === "CONTRACTOR" ? user._id : user.parentUserId;
@@ -51,14 +52,15 @@ const addAssignedSites = async (labours, contractorId, companyId) => {
     ])
   );
 
-  return labours.map((labour) => {
+  return Promise.all(labours.map(async (labour) => {
     const data = labour.toObject();
+    if (!data.qrCode) data.qrCode = await QRCode.toDataURL(JSON.stringify({ type: "KINETIC_LMS_LABOUR", id: labour._id.toString(), employeeCode: labour.labourCode }));
     data.site = siteByLabourId.get(labour._id.toString()) || null;
     data.finalDailyWage =
       data.dailyWage ?? data.skillId?.defaultDailyWage ?? 0;
     data.wageType = data.dailyWage != null ? "CUSTOM" : "SKILL_BASED";
     return data;
-  });
+  }));
 };
 
 const statutoryDetails = (body, current = {}) => {
@@ -71,6 +73,24 @@ const statutoryDetails = (body, current = {}) => {
   return { isPFApplicable, pfUanNumber, isESICApplicable, esicIpNumber };
 };
 
+
+const optionalText = (value) => {
+  const text = value == null ? "" : String(value).trim();
+  return text || null;
+};
+const identityDetails = (body, current = {}) => ({
+  aadhaarNumber: optionalText(body.aadhaarNumber ?? current.aadhaarNumber)?.replace(/\D/g, "") || null,
+  panNumber: optionalText(body.panNumber ?? current.panNumber)?.toUpperCase() || null,
+  bankAccountNumber: optionalText(body.bankAccountNumber ?? current.bankAccountNumber)?.replace(/\D/g, "") || null,
+  ifscCode: optionalText(body.ifscCode ?? current.ifscCode)?.toUpperCase() || null,
+  emergencyContact: {
+    name: String(body.emergencyContactName ?? current.emergencyContact?.name ?? "").trim(),
+    relation: String(body.emergencyContactRelation ?? current.emergencyContact?.relation ?? "").trim(),
+    mobile: String(body.emergencyContactMobile ?? current.emergencyContact?.mobile ?? "").replace(/\D/g, ""),
+  },
+  joiningDate: body.joiningDate === undefined ? (current.joiningDate || new Date()) : (body.joiningDate || new Date()),
+  resignationDate: body.resignationDate === undefined ? (current.resignationDate || null) : (body.resignationDate || null),
+});
 const createLabour = async (req, res) => {
   try {
     const {
@@ -116,6 +136,7 @@ const createLabour = async (req, res) => {
 
     const contractorId = getContractorId(req.user);
     const statutory = statutoryDetails({ isPFApplicable, pfUanNumber, isESICApplicable, esicIpNumber });
+    const identity = identityDetails(req.body);
     if (statutory.error) return res.status(400).json({ success: false, message: statutory.error });
 
     // Skill validation
@@ -183,6 +204,8 @@ const createLabour = async (req, res) => {
       gender,
       dob: dob || null,
       address: address || "",
+      ...identity,
+      photoUrl: req.file ? `/uploads/labours/${req.file.filename}` : null,
       isPFApplicable: statutory.isPFApplicable,
       pfUanNumber: statutory.pfUanNumber,
       isESICApplicable: statutory.isESICApplicable,
@@ -192,6 +215,9 @@ const createLabour = async (req, res) => {
           ? Number(dailyWage)
           : null,
     });
+
+    labour.qrCode = await QRCode.toDataURL(JSON.stringify({ type: "KINETIC_LMS_LABOUR", id: labour._id.toString(), employeeCode: labour.labourCode }));
+    await labour.save();
 
     try {
       // Assign labour to selected site
@@ -215,6 +241,7 @@ const createLabour = async (req, res) => {
           "skillId",
           "skillName skillCode defaultDailyWage otRatePerHour"
         )
+        .populate("companyId", "companyName companyCode logoUrl")
         .populate(
           "supervisorId",
           "name mobile employeeCode"
@@ -248,7 +275,7 @@ const createLabour = async (req, res) => {
       return res.status(400).json({
         success: false,
         message:
-          "Labour code, mobile, PF UAN or ESIC IP number already exists",
+          "Employee code, mobile, Aadhaar, PAN, UAN or ESIC number already exists",
       });
     }
 
@@ -268,6 +295,7 @@ const getLabours = async (req, res) => {
       isDeleted: false,
     })
       .populate("skillId", "skillName skillCode defaultDailyWage")
+      .populate("companyId", "companyName companyCode logoUrl")
       .sort({ createdAt: -1 });
 
     const data = await addAssignedSites(
@@ -294,7 +322,7 @@ const getLabourById = async (req, res) => {
       companyId: req.user.companyId,
       contractorId,
       isDeleted: false,
-    }).populate("skillId", "skillName skillCode defaultDailyWage");
+    }).populate("skillId", "skillName skillCode defaultDailyWage").populate("companyId", "companyName companyCode logoUrl");
 
     if (!labour) {
       return res.status(404).json({
@@ -338,6 +366,7 @@ const updateLabour = async (req, res) => {
     const currentLabour = await Labour.findOne({ _id: req.params.id, companyId: req.user.companyId, contractorId, isDeleted: false });
     if (!currentLabour) return res.status(404).json({ success: false, message: "Labour not found" });
     const statutory = statutoryDetails({ isPFApplicable, pfUanNumber, isESICApplicable, esicIpNumber }, currentLabour);
+    const identity = identityDetails(req.body, currentLabour);
     if (statutory.error) return res.status(400).json({ success: false, message: statutory.error });
 
     if (!name || !mobile || !gender || !skillId) {
@@ -450,6 +479,8 @@ const updateLabour = async (req, res) => {
       ...(gender !== undefined && { gender }),
       ...(dob !== undefined && { dob: dob || null }),
       ...(address !== undefined && { address }),
+      ...identity,
+      ...(req.file && { photoUrl: `/uploads/labours/${req.file.filename}` }),
       isPFApplicable: statutory.isPFApplicable,
       pfUanNumber: statutory.pfUanNumber,
       isESICApplicable: statutory.isESICApplicable,
@@ -509,7 +540,7 @@ const updateLabour = async (req, res) => {
       data,
     });
   } catch (error) {
-    if (error.code === 11000) return res.status(400).json({ success: false, message: "PF UAN or ESIC IP number already exists" });
+    if (error.code === 11000) return res.status(400).json({ success: false, message: "Aadhaar, PAN, UAN or ESIC number already exists" });
     res.status(500).json({ success: false, message: error.message });
   }
 };
@@ -590,6 +621,10 @@ module.exports = {
   changeLabourStatus,
   deleteLabour,
 };
+
+
+
+
 
 
 

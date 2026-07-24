@@ -1,4 +1,5 @@
 ﻿const express = require("express");
+const path = require("path");
 const cookieParser = require("cookie-parser");
 const authRoutes = require("./routes/auth.routes");
 const companyRotes = require('./routes/company.routes')
@@ -39,6 +40,8 @@ app.use(
     credentials: true,
   })
 );
+
+app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
 app.use((req, res, next) => {
   if (req.headers.origin === frontendOrigin) {
@@ -94,4 +97,6 @@ app.use("/api/subscriptions", subscriptionRoutes);
 
 
 module.exports = app;
+
+
 

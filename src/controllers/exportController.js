@@ -95,6 +95,16 @@ const exportLabours = async (req, res) => {
       { header: "Status", key: "status", width: 14 },
       { header: "Daily Wage", key: "dailyWage", width: 16 },
       { header: "Address", key: "address", width: 35 },
+      { header: "Aadhaar", key: "aadhaarNumber", width: 18 },
+      { header: "PAN", key: "panNumber", width: 16 },
+      { header: "Bank Account", key: "bankAccountNumber", width: 22 },
+      { header: "IFSC", key: "ifscCode", width: 16 },
+      { header: "UAN", key: "pfUanNumber", width: 18 },
+      { header: "ESIC Number", key: "esicIpNumber", width: 18 },
+      { header: "Emergency Contact", key: "emergencyContact", width: 25 },
+      { header: "Emergency Mobile", key: "emergencyMobile", width: 18 },
+      { header: "Joining Date", key: "joiningDate", width: 16 },
+      { header: "Resignation Date", key: "resignationDate", width: 18 },
     ];
 
     const headerRow = worksheet.getRow(1);
@@ -120,11 +130,21 @@ const exportLabours = async (req, res) => {
         dailyWage:
           labour.dailyWage ?? labour.skillId?.defaultDailyWage ?? 0,
         address: labour.address || "",
+        aadhaarNumber: labour.aadhaarNumber || "",
+        panNumber: labour.panNumber || "",
+        bankAccountNumber: labour.bankAccountNumber || "",
+        ifscCode: labour.ifscCode || "",
+        pfUanNumber: labour.pfUanNumber || "",
+        esicIpNumber: labour.esicIpNumber || "",
+        emergencyContact: [labour.emergencyContact?.name, labour.emergencyContact?.relation].filter(Boolean).join(" - "),
+        emergencyMobile: labour.emergencyContact?.mobile || "",
+        joiningDate: labour.joiningDate || "",
+        resignationDate: labour.resignationDate || "",
       });
     });
 
     worksheet.views = [{ state: "frozen", ySplit: 1 }];
-    worksheet.autoFilter = { from: "A1", to: "J1" };
+    worksheet.autoFilter = { from: "A1", to: "T1" };
 
     res.setHeader(
       "Content-Type",
@@ -591,4 +611,5 @@ module.exports = {
   exportSalaryReport,
   exportFilteredReport
 };
+
 
