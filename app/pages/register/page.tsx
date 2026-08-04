@@ -87,9 +87,8 @@ export default function RegisterPage() {
       })
       const result = (await response.json()) as RegisterResponse
       if (!response.ok || !result.success) throw new Error(result.message ?? "Registration failed. Please try again.")
-      showToast(result.message ?? "Registration successful.", "success")
-      router.push(result.user?.role === "SUPER_ADMIN" ? "/pages/superadmin" : "/")
-      router.refresh()
+      showToast(result.message ?? "OTP sent to your email. Please verify to complete registration.", "success")
+      setAwaitingOtp(true)
     } catch (requestError) {
       const message = requestError instanceof Error ? requestError.message : "Registration failed. Please try again."
       setError(message)

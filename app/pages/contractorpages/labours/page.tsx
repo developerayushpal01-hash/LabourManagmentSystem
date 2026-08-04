@@ -1,5 +1,6 @@
 ﻿"use client"
 
+import Image from "next/image"
 import { FormEvent, useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import Navbar from "@/app/components/navbar"
@@ -31,6 +32,7 @@ type Labour = {
   mobile: string
   gender: "MALE" | "FEMALE" | "OTHER"
   address?: string
+  department?: string | null
   dob?: string | null
   dailyWage?: number | null
   finalDailyWage: number
@@ -102,11 +104,12 @@ type LabourForm = {
   skillId: string
   siteId: string
   address: string
+  department: string
   dailyWage: string
 }
 
 const PAGE_SIZE = 10
-const emptyForm: LabourForm = { name: "", mobile: "", gender: "MALE", skillId: "", siteId: "", address: "", dailyWage: "" }
+const emptyForm: LabourForm = { name: "", mobile: "", gender: "MALE", skillId: "", siteId: "", address: "", department: "", dailyWage: "" }
 const money = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 })
 const shortDate = new Intl.DateTimeFormat("en-IN", { day: "2-digit", month: "short", year: "numeric" })
 const backendOrigin = API_BASE_URL.replace(/\/api$/, "")
@@ -186,7 +189,7 @@ const LaboursPage = () => {
       const matchesStatus = activeFilter === "ALL" || labour.status === activeFilter
       const matchesSite = !siteFilter || labour.site?._id === siteFilter
       const matchesSkill = !skillFilter || labour.skillId?._id === skillFilter
-      const matchesQuery = !normalizedQuery || [labour.name, labour.mobile, labour.labourCode, labour.address]
+      const matchesQuery = !normalizedQuery || [labour.name, labour.mobile, labour.labourCode, labour.address, labour.department]
         .some((value) => value?.toLowerCase().includes(normalizedQuery))
       return matchesStatus && matchesSite && matchesSkill && matchesQuery
     })
@@ -228,6 +231,7 @@ const LaboursPage = () => {
       skillId: labour.skillId?._id ?? "",
       siteId: labour.site?._id ?? "",
       address: labour.address ?? "",
+      department: labour.department ?? "",
       dailyWage: labour.dailyWage?.toString() ?? "",
     })
     setIsFormOpen(true)
@@ -301,6 +305,7 @@ const LaboursPage = () => {
               gender: form.gender,
               skillId: form.skillId,
               address: form.address,
+              department: form.department,
               dailyWage: form.dailyWage ? Number(form.dailyWage) : null,
               ...(!editingLabour.site && form.siteId ? { siteId: form.siteId } : {}),
             }
@@ -484,14 +489,15 @@ const LaboursPage = () => {
             <div className="overflow-x-auto">
               <table className="w-full min-w-[1350px] text-left">
                 <thead className="bg-slate-50 text-[11px] uppercase text-slate-500">
-                  <tr><th className="px-5 py-3">#</th><th className="px-5 py-3">Labour Code</th><th className="px-5 py-3">Name</th><th className="px-5 py-3">Site</th><th className="px-5 py-3">Mobile</th><th className="px-5 py-3">Status</th><th className="px-5 py-3">Daily Wage</th><th className="px-5 py-3">PF / UAN</th><th className="px-5 py-3">ESIC / IP</th><th className="px-5 py-3 text-right">Action</th></tr>
+                  <tr><th className="px-5 py-3">#</th><th className="px-5 py-3">Labour Code</th><th className="px-5 py-3">Name</th><th className="px-5 py-3">Department</th><th className="px-5 py-3">Site</th><th className="px-5 py-3">Mobile</th><th className="px-5 py-3">Status</th><th className="px-5 py-3">Daily Wage</th><th className="px-5 py-3">PF / UAN</th><th className="px-5 py-3">ESIC / IP</th><th className="px-5 py-3 text-right">Action</th></tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {visibleLabours.map((labour, index) => (
                     <tr key={labour._id} className="text-sm hover:bg-slate-50">
                       <td className="px-5 py-4 text-xs text-slate-500">{String((currentPage - 1) * PAGE_SIZE + index + 1).padStart(3, "0")}</td>
                       <td className="px-5 py-4 text-xs font-semibold text-indigo-600">{labour.labourCode}</td>
-                      <td className="px-5 py-4"><div className="flex items-center gap-3">{labour.photoUrl ? <img src={`${backendOrigin}${labour.photoUrl}`} alt="" className="h-9 w-9 rounded-md object-cover" /> : <span className="flex h-9 w-9 items-center justify-center rounded-md bg-indigo-100 text-xs font-bold text-indigo-700">{initials(labour.name)}</span>}<div><p className="font-semibold text-slate-800">{labour.name}</p><p className="text-xs text-slate-500">{labour.skillId?.skillName ?? "Skill not assigned"}</p></div></div></td>
+                      <td className="px-5 py-4"><div className="flex items-center gap-3">{labour.photoUrl ? <Image src={`${backendOrigin}${labour.photoUrl}`} alt="" width={36} height={36} className="h-9 w-9 rounded-md object-cover" /> : <span className="flex h-9 w-9 items-center justify-center rounded-md bg-indigo-100 text-xs font-bold text-indigo-700">{initials(labour.name)}</span>}<div><p className="font-semibold text-slate-800">{labour.name}</p><p className="text-xs text-slate-500">{labour.skillId?.skillName ?? "Skill not assigned"}</p></div></div></td>
+                      <td className="px-5 py-4 text-xs text-slate-700">{labour.department || "-"}</td>
                       <td className="px-5 py-4"><p className="text-xs font-medium text-slate-700">{labour.site?.siteName ?? "Site not assigned"}</p><p className="mt-1 text-xs text-slate-400">{labour.site?.siteCode ?? ""}</p></td>
                       <td className="px-5 py-4 text-xs text-slate-700">{labour.mobile}</td>
                       <td className="px-5 py-4"><span className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${labour.status === "ACTIVE" ? "bg-emerald-100 text-emerald-700" : labour.status === "INACTIVE" ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700"}`}>{labour.status}</span></td>
@@ -549,6 +555,7 @@ const LaboursPage = () => {
                 <label className="text-xs font-semibold text-slate-600">Site<select required value={form.siteId} onChange={(event) => setForm({ ...form, siteId: event.target.value })} className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm font-normal outline-none focus:border-indigo-500"><option value="">Select site</option>{sites.filter((site) => site.status === "ACTIVE").map((site) => <option key={site._id} value={site._id}>{site.siteName}{site.siteCode ? ` (${site.siteCode})` : ""}</option>)}</select>{editingLabour && <span className="mt-1 block text-[11px] font-normal text-slate-400">Once assigned, the site cannot be changed.</span>}</label>
               )}
               <label className="text-xs font-semibold text-slate-600">Gender<select required value={form.gender} onChange={(event) => setForm({ ...form, gender: event.target.value as Labour["gender"], skillId: "", dailyWage: "" })} className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm font-normal outline-none focus:border-indigo-500"><option value="MALE">Male</option><option value="FEMALE">Female</option><option value="OTHER">Other</option></select></label>
+              <label className="text-xs font-semibold text-slate-600">Department<input value={form.department} onChange={(event) => setForm({ ...form, department: event.target.value })} className="mt-1 h-10 w-full rounded-md border border-slate-300 px-3 text-sm font-normal outline-none focus:border-indigo-500" /></label>
               <label className="text-xs font-semibold text-slate-600">Custom daily wage<input type="number" min="0" value={form.dailyWage} onChange={(event) => setForm({ ...form, dailyWage: event.target.value })} placeholder="Use skill default" className="mt-1 h-10 w-full rounded-md border border-slate-300 px-3 text-sm font-normal outline-none focus:border-indigo-500" /></label>
               <label className="text-xs font-semibold text-slate-600">Address<input value={form.address} onChange={(event) => setForm({ ...form, address: event.target.value })} className="mt-1 h-10 w-full rounded-md border border-slate-300 px-3 text-sm font-normal outline-none focus:border-indigo-500" /></label>
               <div className="flex justify-end gap-2 border-t border-slate-200 pt-4 sm:col-span-2"><button type="button" onClick={closeForm} className="h-10 rounded-md border border-slate-300 px-4 text-sm font-medium text-slate-600">Cancel</button><button type="submit" disabled={isSubmitting} className="h-10 rounded-md bg-indigo-700 px-5 text-sm font-semibold text-white disabled:opacity-50">{isSubmitting ? "Saving..." : "Save Changes"}</button></div>
@@ -568,6 +575,7 @@ const LaboursPage = () => {
               <label className="text-xs font-semibold text-slate-600">Skill<select required value={form.skillId} onChange={(event) => {const skill=skills.find(item=>item._id===event.target.value);setForm({...form,skillId:event.target.value,dailyWage:skill?.defaultDailyWage?.toString()||""})}} className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm font-normal outline-none focus:border-indigo-500"><option value="">Select gender-matching skill</option>{skills.filter(skill=>!skill.gender||skill.gender==="ALL"||skill.gender===form.gender).map((skill) => <option key={skill._id} value={skill._id}>{skill.skillName} â€” {skill.gender||"ALL"} (â‚¹{skill.defaultDailyWage||0})</option>)}</select></label>
               <label className="text-xs font-semibold text-slate-600">Site<select required value={form.siteId} onChange={(event) => setForm({ ...form, siteId: event.target.value })} className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm font-normal outline-none focus:border-indigo-500"><option value="">Select site</option>{sites.filter((site) => site.status === "ACTIVE").map((site) => <option key={site._id} value={site._id}>{site.siteName}</option>)}</select></label>
               <label className="text-xs font-semibold text-slate-600">Gender<select required value={form.gender} onChange={(event) => setForm({ ...form, gender: event.target.value as Labour["gender"], skillId: "", dailyWage: "" })} className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm font-normal outline-none focus:border-indigo-500"><option value="MALE">Male</option><option value="FEMALE">Female</option><option value="OTHER">Other</option></select></label>
+              <label className="text-xs font-semibold text-slate-600">Department<input value={form.department} onChange={(event) => setForm({ ...form, department: event.target.value })} className="mt-1 h-10 w-full rounded-md border border-slate-300 px-3 text-sm font-normal outline-none focus:border-indigo-500" /></label>
               <label className="text-xs font-semibold text-slate-600">Custom daily wage<input type="number" min="0" value={form.dailyWage} onChange={(event) => setForm({ ...form, dailyWage: event.target.value })} placeholder="Use skill default" className="mt-1 h-10 w-full rounded-md border border-slate-300 px-3 text-sm font-normal outline-none focus:border-indigo-500" /></label>
               <label className="text-xs font-semibold text-slate-600 sm:col-span-2">Address<input value={form.address} onChange={(event) => setForm({ ...form, address: event.target.value })} className="mt-1 h-10 w-full rounded-md border border-slate-300 px-3 text-sm font-normal outline-none focus:border-indigo-500" /></label>
               <div className="flex justify-end gap-2 border-t border-slate-200 pt-4 sm:col-span-2"><button type="button" onClick={closeForm} className="h-10 rounded-md border border-slate-300 px-4 text-sm font-medium text-slate-600">Cancel</button><button type="submit" disabled={isSubmitting} className="h-10 rounded-md bg-indigo-700 px-5 text-sm font-semibold text-white disabled:opacity-50">{isSubmitting ? "Saving..." : "Add Labour"}</button></div>
@@ -647,8 +655,7 @@ const LaboursPage = () => {
                 </div>
                 <dl className="mt-5 divide-y divide-slate-100 text-xs">
                   <div className="flex items-center justify-between gap-4 py-3"><dt className="text-[10px] uppercase text-slate-400">Joining Date</dt><dd className="font-semibold text-slate-700">{shortDate.format(new Date(activeAssignment?.assignedFrom || selectedLabour.createdAt))}</dd></div>
-                  <div className="flex items-center justify-between gap-4 py-3"><dt className="text-[10px] uppercase text-slate-400">Skill</dt><dd className="font-semibold text-indigo-600">{selectedLabour.skillId?.skillName || "-"}</dd></div>
-                  <div className="flex items-center justify-between gap-4 py-3"><dt className="text-[10px] uppercase text-slate-400">Current Site</dt><dd className="text-right font-semibold text-slate-700">{selectedLabour.site?.siteName || activeAssignment?.siteId?.siteName || "Not assigned"}</dd></div>
+                  <div className="flex items-center justify-between gap-4 py-3"><dt className="text-[10px] uppercase text-slate-400">Skill</dt><dd className="font-semibold text-indigo-600">{selectedLabour.skillId?.skillName || "-"}</dd></div>                  <div className="flex items-center justify-between gap-4 py-3"><dt className="text-[10px] uppercase text-slate-400">Department</dt><dd className="text-right font-semibold text-slate-700">{selectedLabour.department || "-"}</dd></div>                  <div className="flex items-center justify-between gap-4 py-3"><dt className="text-[10px] uppercase text-slate-400">Current Site</dt><dd className="text-right font-semibold text-slate-700">{selectedLabour.site?.siteName || activeAssignment?.siteId?.siteName || "Not assigned"}</dd></div>
                   <div className="flex items-center justify-between gap-4 py-3"><dt className="text-[10px] uppercase text-slate-400">Site Code</dt><dd className="font-semibold text-slate-700">{selectedLabour.site?.siteCode || activeAssignment?.siteId?.siteCode || "-"}</dd></div>
                 </dl>
               </section>
