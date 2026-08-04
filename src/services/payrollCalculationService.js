@@ -62,8 +62,12 @@ const calculateSalary = ({
     overtimeHours += hours;
     if (record.overtimeAmount !== null && record.overtimeAmount !== undefined) {
       overtime += nonNegative(record.overtimeAmount, "Overtime amount");
+    } else if (record.overtimeRate !== undefined && record.overtimeRate !== null) {
+      overtime += hours * nonNegative(record.overtimeRate, "Overtime rate");
+    } else if (dailyWage > 0) {
+      overtime += hours * (dailyWage / 8);
     } else {
-      overtime += hours * nonNegative(record.overtimeRate ?? defaultOvertimeRate, "Overtime rate");
+      overtime += hours * nonNegative(defaultOvertimeRate, "Overtime rate");
     }
   });
 

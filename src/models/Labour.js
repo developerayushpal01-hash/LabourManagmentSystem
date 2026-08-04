@@ -76,6 +76,12 @@ const labourSchema = new mongoose.Schema(
       trim: true,
     },
 
+    department: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+
     dailyWage: {
       type: Number,
       default: null,
